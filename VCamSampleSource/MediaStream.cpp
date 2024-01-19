@@ -142,7 +142,7 @@ void MediaStream::Shutdown()
 // IMFMediaEventGenerator
 STDMETHODIMP MediaStream::BeginGetEvent(IMFAsyncCallback* pCallback, IUnknown* punkState)
 {
-	//WINTRACE(L"MediaSource::BeginGetEvent");
+	WINTRACE(L"MediaSource::BeginGetEvent");
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_queue);
 
@@ -152,7 +152,7 @@ STDMETHODIMP MediaStream::BeginGetEvent(IMFAsyncCallback* pCallback, IUnknown* p
 
 STDMETHODIMP MediaStream::EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** ppEvent)
 {
-	//WINTRACE(L"MediaStream::EndGetEvent");
+	WINTRACE(L"MediaStream::EndGetEvent");
 	RETURN_HR_IF_NULL(E_POINTER, ppEvent);
 	*ppEvent = nullptr;
 	winrt::slim_lock_guard lock(_lock);
@@ -210,7 +210,7 @@ STDMETHODIMP MediaStream::GetStreamDescriptor(IMFStreamDescriptor** ppStreamDesc
 
 STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 {
-	//WINTRACE(L"MediaStream::RequestSample pToken:%p", pToken);
+	WINTRACE(L"MediaStream::RequestSample pToken:%p", pToken);
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_allocator || !_queue);
 

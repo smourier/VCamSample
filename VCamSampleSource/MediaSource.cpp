@@ -346,10 +346,9 @@ STDMETHODIMP_(NTSTATUS) MediaSource::KsProperty(PKSPROPERTY property, ULONG leng
 	WINTRACE(L"MediaSource::KsProperty len:%u data:%p dataLength:%u", length, data, dataLength);
 	RETURN_HR_IF_NULL(E_POINTER, property);
 	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
-	RETURN_HR_IF(E_INVALIDARG, length < sizeof(KSPROPERTY));
 	winrt::slim_lock_guard lock(_lock);
 
-	WINTRACE(L"MediaSource::KsProperty prop:'%s' id:%u flags:'%s'", GUID_ToStringW(property->Set).c_str(), property->Id, KSPROPERTY_TYPE_ToString(property->Flags).c_str());
+	WINTRACE(L"MediaSource::KsProperty prop:%s", PKSIDENTIFIER_ToString(property, length).c_str());
 
 	// right now, we don't expose any property, but this is where we'll typically be asked for
 	// 
@@ -368,6 +367,8 @@ STDMETHODIMP_(NTSTATUS) MediaSource::KsMethod(PKSMETHOD method, ULONG length, LP
 	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
 	winrt::slim_lock_guard lock(_lock);
 
+	WINTRACE(L"MediaSource::KsMethod method:%s", PKSIDENTIFIER_ToString(method, length).c_str());
+
 	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
 }
 
@@ -377,9 +378,6 @@ STDMETHODIMP_(NTSTATUS) MediaSource::KsEvent(PKSEVENT evt, ULONG length, LPVOID 
 	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
 	winrt::slim_lock_guard lock(_lock);
 
-	if (evt && length >= sizeof(KSEVENT))
-	{
-		WINTRACE(L"MediaSource::KsEvent evt:'%s' id:%u flags:%u", GUID_ToStringW(evt->Set).c_str(), evt->Id, evt->Flags);
-	}
+	WINTRACE(L"MediaSource::KsEvent event:%s", PKSIDENTIFIER_ToString(evt, length).c_str());
 	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
 }

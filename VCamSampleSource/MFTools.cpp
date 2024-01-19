@@ -54,3 +54,35 @@ void TraceMFAttributes(IUnknown* unknown, PCWSTR prefix)
 	}
 }
 
+std::wstring PKSIDENTIFIER_ToString(PKSIDENTIFIER id, ULONG length)
+{
+	if (!id)
+		return L"<null>";
+
+	if (length < sizeof(KSIDENTIFIER))
+		return std::format(L"<length:{}>", length);
+
+	auto flags = KSPROPERTY_TYPE_ToString(id->Flags);
+	if (id->Set == KSPROPERTYSETID_ExtendedCameraControl)
+		return L"KSPROPERTYSETID_ExtendedCameraControl " + KSPROPERTY_CAMERACONTROL_EXTENDED_PROPERTY_ToString(id->Id) + L" " + flags;
+
+	if (id->Set == PROPSETID_VIDCAP_CAMERACONTROL)
+		return L"PROPSETID_VIDCAP_CAMERACONTROL " + PROPSETID_VIDCAP_CAMERACONTROL_ToString(id->Id) + L" " + flags;
+
+	if (id->Set == PROPSETID_VIDCAP_VIDEOPROCAMP)
+		return L"PROPSETID_VIDCAP_VIDEOPROCAMP " + PROPSETID_VIDCAP_CAMERACONTROL_ToString(id->Id) + L" " + flags;
+
+	if (id->Set == KSPROPERTYSETID_PerFrameSettingControl)
+		return L"KSPROPERTYSETID_PerFrameSettingControl " + KSPROPERTY_CAMERACONTROL_PERFRAMESETTING_PROPERTY_ToString(id->Id) + L" " + flags;
+
+	if (id->Set == PROPSETID_VIDCAP_CAMERACONTROL_REGION_OF_INTEREST)
+		return L"PROPSETID_VIDCAP_CAMERACONTROL_REGION_OF_INTEREST " + KSPROPERTY_CAMERACONTROL_REGION_OF_INTEREST_ToString(id->Id) + L" " + flags;
+
+	if (id->Set == KSPROPSETID_Topology)
+		return L"KSPROPSETID_Topology " + KSPROPERTY_TOPOLOGY_ToString(id->Id) + L" " + flags;
+
+	if (id->Set == KSPROPSETID_Pin)
+		return L"KSPROPSETID_Pin " + KSPROPERTY_PIN_ToString(id->Id) + L" " + flags;
+
+	return std::format(L"{} {} {}", GUID_ToStringW(id->Set).c_str(), id->Id, flags);
+}
