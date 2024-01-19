@@ -3,7 +3,7 @@ This solution contains a Media Foundation Virtual Camera Sample. It works only o
 
 There are two projects in the solution:
 
-* **VCamSampleSource**: the Media Source that provides RGB32 and NV12 VCamSampleSource.
+* **VCamSampleSource**: the Media Source that provides RGB32 and NV12 streaming samples.
 * **VCamSample**: the "driver" application that does very little but calls `MFCreateVirtualCamera`.
 
 
