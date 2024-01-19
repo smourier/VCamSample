@@ -22,4 +22,5 @@ public:
 
 	HRESULT SetD3DManager(IUnknown* manager, UINT width, UINT height);
 	HRESULT Generate(IMFSample* sample, REFGUID format);
+	bool HasD3DManager();
 };

@@ -2,6 +2,11 @@
 #include "Tools.h"
 #include "FrameGenerator.h"
 
+bool FrameGenerator::HasD3DManager()
+{
+	return _texture && _renderTarget && _textFormat && _dwrite && _whiteBrush;
+}
+
 HRESULT FrameGenerator::SetD3DManager(IUnknown* manager, UINT width, UINT height)
 {
 	RETURN_HR_IF_NULL(E_POINTER, manager);
@@ -43,7 +48,7 @@ HRESULT FrameGenerator::SetD3DManager(IUnknown* manager, UINT width, UINT height
 	RETURN_IF_FAILED(_renderTarget->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 1), &_whiteBrush));
 
 	RETURN_IF_FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown**)&_dwrite));
-	RETURN_IF_FAILED(_dwrite->CreateTextFormat(L"Segoe UI Emoji", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 40, L"", &_textFormat));
+	RETURN_IF_FAILED(_dwrite->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 40, L"", &_textFormat));
 	RETURN_IF_FAILED(_textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER));
 	RETURN_IF_FAILED(_textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER));
 	_width = width;
@@ -55,7 +60,7 @@ HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format)
 {
 	RETURN_HR_IF_NULL(E_POINTER, sample);
 
-	if (_texture && _renderTarget && _textFormat && _dwrite && _whiteBrush)
+	if (HasD3DManager())
 	{
 		_renderTarget->BeginDraw();
 		_renderTarget->Clear(D2D1::ColorF(0, 0, 1, 1));
@@ -102,11 +107,6 @@ HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format)
 
 		DWRITE_TEXT_METRICS metrics;
 		RETURN_IF_FAILED(layout->GetMetrics(&metrics));
-		auto pa = layout->GetParagraphAlignment();
-		auto ta = layout->GetTextAlignment();
-		WINTRACE("pa:%u ta:%u len:%u metrics:%f %f, %f %f %i, %f %f, %f", pa, ta, len, metrics.width, metrics.height, metrics.layoutWidth, metrics.layoutHeight, metrics.lineCount, metrics.left, metrics.top, metrics.widthIncludingTrailingWhitespace);
-
-		//_renderTarget->DrawTextLayout(D2D1::Point2F((_width - metrics.width) / 2.0f, (_height - metrics.height) / 2.0f), layout.get(), _whiteBrush.get());
 		_renderTarget->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), _whiteBrush.get());
 		_renderTarget->EndDraw();
 

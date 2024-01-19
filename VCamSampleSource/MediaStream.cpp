@@ -33,7 +33,7 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 	nv12Type->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
 	MFSetAttributeSize(nv12Type.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
 	MFSetAttributeRatio(nv12Type.get(), MF_MT_FRAME_RATE, 30, 1);
-	// frame size * pixle bit size * framerate
+	// frame size * pixel bit size * framerate
 	auto bitrate = (uint32_t)(NUM_IMAGE_COLS * 1.5 * NUM_IMAGE_ROWS * 8 * 30);
 	nv12Type->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
 	MFSetAttributeRatio(nv12Type.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
@@ -47,7 +47,6 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 	rgbType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	rgbType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
 	MFSetAttributeRatio(rgbType.get(), MF_MT_FRAME_RATE, 30, 1);
-	// frame size * pixel bit size * framerate
 	bitrate = (uint32_t)(NUM_IMAGE_COLS * NUM_IMAGE_ROWS * 4 * 8 * 30);
 	rgbType->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
 	MFSetAttributeRatio(rgbType.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
@@ -235,28 +234,30 @@ STDMETHODIMP MediaStream::GetStreamDescriptor(IMFStreamDescriptor** ppStreamDesc
 
 STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 {
-	//WINTRACE(L"MediaStream::RequestSample pToken:%p format:'%s'", pToken, GUID_ToStringW(_format).c_str());
+	auto hasD3D = _generator.HasD3DManager();
+	//WINTRACE(L"MediaStream::RequestSample pToken:%p format:'%s' hasD3D:%u", pToken, GUID_ToStringW(_format).c_str(), hasD3D);
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_allocator || !_queue);
 
 	wil::com_ptr_nothrow<IMFSample> sample;
 	RETURN_IF_FAILED(_allocator->AllocateSample(&sample));
-	RETURN_IF_FAILED(sample->RemoveAllBuffers());
-
 	RETURN_IF_FAILED(sample->SetSampleTime(MFGetSystemTime()));
 	RETURN_IF_FAILED(sample->SetSampleDuration(333333));
 
-	// generate & convert if needed
-	RETURN_IF_FAILED(_generator.Generate(sample.get(), _format));
-	if (_format == MFVideoFormat_NV12)
+	if (hasD3D)
 	{
-		wil::com_ptr_nothrow<IMFSample> outSample;
-		//RETURN_IF_FAILED(_allocator->AllocateSample(&outSample));
+		RETURN_IF_FAILED(sample->RemoveAllBuffers());
 
-		RETURN_IF_FAILED(ConvertToNV12(sample.get(), &outSample));
-
-		sample.attach(outSample.detach());
+		// generate & convert if needed
+		RETURN_IF_FAILED(_generator.Generate(sample.get(), _format));
+		if (_format == MFVideoFormat_NV12)
+		{
+			wil::com_ptr_nothrow<IMFSample> outSample;
+			RETURN_IF_FAILED(ConvertToNV12(sample.get(), &outSample));
+			sample.attach(outSample.detach());
+		}
 	}
+	// else *to be done* (case of webcam in chrome, edge, etc.) see https://webcamtests.com/
 
 	if (pToken)
 	{
