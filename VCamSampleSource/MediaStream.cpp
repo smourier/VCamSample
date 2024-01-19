@@ -1,7 +1,9 @@
 #include "pch.h"
+#include "Undocumented.h"
 #include "Tools.h"
 #include "EnumNames.h"
 #include "MFTools.h"
+#include "FrameGenerator.h"
 #include "MediaStream.h"
 #include "MediaSource.h"
 
@@ -18,24 +20,38 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 
 	RETURN_IF_FAILED(MFCreateEventQueue(&_queue));
 
-	auto types = wil::make_unique_cotaskmem_array<wil::com_ptr_nothrow<IMFMediaType>>(1);
+	auto types = wil::make_unique_cotaskmem_array<wil::com_ptr_nothrow<IMFMediaType>>(2);
 
 #define NUM_IMAGE_ROWS 480
 #define NUM_IMAGE_COLS 640
 
-	wil::com_ptr_nothrow<IMFMediaType> type;
-	RETURN_IF_FAILED(MFCreateMediaType(&type));
-	type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
-	type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
-	MFSetAttributeSize(type.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
-	type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
-	type->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
-	MFSetAttributeRatio(type.get(), MF_MT_FRAME_RATE, 30, 1);
+	wil::com_ptr_nothrow<IMFMediaType> nv12Type;
+	RETURN_IF_FAILED(MFCreateMediaType(&nv12Type));
+	nv12Type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+	nv12Type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
+	nv12Type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
+	nv12Type->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
+	MFSetAttributeSize(nv12Type.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
+	MFSetAttributeRatio(nv12Type.get(), MF_MT_FRAME_RATE, 30, 1);
+	// frame size * pixle bit size * framerate
+	auto bitrate = (uint32_t)(NUM_IMAGE_COLS * 1.5 * NUM_IMAGE_ROWS * 8 * 30);
+	nv12Type->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
+	MFSetAttributeRatio(nv12Type.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+	types[0] = nv12Type.detach();
+
+	wil::com_ptr_nothrow<IMFMediaType> rgbType;
+	RETURN_IF_FAILED(MFCreateMediaType(&rgbType));
+	rgbType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+	rgbType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
+	MFSetAttributeSize(rgbType.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
+	rgbType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
+	rgbType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
+	MFSetAttributeRatio(rgbType.get(), MF_MT_FRAME_RATE, 30, 1);
 	// frame size * pixel bit size * framerate
-	auto bitrate = (uint32_t)(NUM_IMAGE_COLS * NUM_IMAGE_ROWS * 4 * 8 * 30);
-	type->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
-	MFSetAttributeRatio(type.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
-	types[0] = type.detach();
+	bitrate = (uint32_t)(NUM_IMAGE_COLS * NUM_IMAGE_ROWS * 4 * 8 * 30);
+	rgbType->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
+	MFSetAttributeRatio(rgbType.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+	types[1] = rgbType.detach();
 
 	RETURN_IF_FAILED_MSG(MFCreateStreamDescriptor(_index, (DWORD)types.size(), types.get(), &_descriptor), "MFCreateStreamDescriptor failed");
 
@@ -43,12 +59,44 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 	RETURN_IF_FAILED(_descriptor->GetMediaTypeHandler(&handler));
 	TraceMFAttributes(handler.get(), L"MediaTypeHandler");
 	RETURN_IF_FAILED(handler->SetCurrentMediaType(types[0]));
+
+	// create RGB => NV12 converter
+	RETURN_IF_FAILED(CoCreateInstance(CLSID_VideoProcessorMFT, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&_converter)));
+
+	wil::com_ptr_nothrow<IMFAttributes> atts;
+	RETURN_IF_FAILED(_converter->GetAttributes(&atts));
+	TraceMFAttributes(atts.get(), L"VideoProcessorMFT");
+
+	MFT_OUTPUT_STREAM_INFO info{};
+	RETURN_IF_FAILED(_converter->GetOutputStreamInfo(0, &info));
+	WINTRACE(L"MediaStream::ConvertToNV12 CLSID_VideoProcessorMFT flags:0x%08X size:%u alignment:%u", info.dwFlags, info.cbSize, info.cbAlignment);
+
+	wil::com_ptr_nothrow<IMFMediaType> inputType;
+	RETURN_IF_FAILED(MFCreateMediaType(&inputType));
+	inputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+	inputType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
+	MFSetAttributeSize(inputType.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
+	RETURN_IF_FAILED(_converter->SetInputType(0, inputType.get(), 0));
+
+	wil::com_ptr_nothrow<IMFMediaType> outputType;
+	RETURN_IF_FAILED(MFCreateMediaType(&outputType));
+	outputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+	outputType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
+	MFSetAttributeSize(outputType.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
+	RETURN_IF_FAILED(_converter->SetOutputType(0, outputType.get(), 0));
 	return S_OK;
 }
 
 HRESULT MediaStream::Start(IMFMediaType* type)
 {
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_queue || !_allocator);
+
+	if (type)
+	{
+		RETURN_IF_FAILED(type->GetGUID(MF_MT_SUBTYPE, &_format));
+		WINTRACE(L"MediaStream::Start format: %s", GUID_ToStringW(_format).c_str());
+	}
+
 	RETURN_IF_FAILED(_allocator->InitializeSampleAllocator(10, type));
 	RETURN_IF_FAILED(_queue->QueueEventParamVar(MEStreamStarted, GUID_NULL, S_OK, nullptr));
 	_state = MF_STREAM_STATE_RUNNING;
@@ -81,48 +129,9 @@ HRESULT MediaStream::SetD3DManager(IUnknown* manager)
 {
 	RETURN_HR_IF_NULL(E_POINTER, manager);
 
+	RETURN_IF_FAILED(_converter->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, (ULONG_PTR)manager));
 	RETURN_IF_FAILED(_allocator->SetDirectXManager(manager));
-
-	wil::com_ptr_nothrow<IMFDXGIDeviceManager> mgr;
-	RETURN_IF_FAILED(manager->QueryInterface(&mgr));
-
-	HANDLE handle;
-	RETURN_IF_FAILED(mgr->OpenDeviceHandle(&handle));
-
-	wil::com_ptr_nothrow<ID3D11Device> device;
-	RETURN_IF_FAILED(mgr->GetVideoService(handle, IID_PPV_ARGS(&device)));
-
-	// create a texture/surface to write
-	CD3D11_TEXTURE2D_DESC desc
-	(
-		DXGI_FORMAT_B8G8R8A8_UNORM,
-		NUM_IMAGE_COLS,
-		NUM_IMAGE_ROWS,
-		1,
-		1,
-		D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET
-	);
-	RETURN_IF_FAILED(device->CreateTexture2D(&desc, nullptr, &_texture));
-	wil::com_ptr_nothrow<IDXGISurface> surface;
-	RETURN_IF_FAILED(_texture.copy_to(&surface));
-
-	// create a D2D1 render target
-	wil::com_ptr_nothrow<ID2D1Factory> d2d1Factory;
-	RETURN_IF_FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, IID_PPV_ARGS(&d2d1Factory)));
-
-	auto props = D2D1::RenderTargetProperties
-	(
-		D2D1_RENDER_TARGET_TYPE_DEFAULT,
-		D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)
-	);
-	RETURN_IF_FAILED(d2d1Factory->CreateDxgiSurfaceRenderTarget(surface.get(), props, &_renderTarget));
-	RETURN_IF_FAILED(_renderTarget->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 1), &_whiteBrush));
-
-	wil::com_ptr_nothrow<IDWriteFactory> dwrite;
-	RETURN_IF_FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown**)&dwrite));
-	RETURN_IF_FAILED(dwrite->CreateTextFormat(L"Consolas", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 40, L"", &_textFormat));
-
-	RETURN_IF_FAILED(mgr->CloseDeviceHandle(handle));
+	RETURN_IF_FAILED(_generator.SetD3DManager(manager, NUM_IMAGE_COLS, NUM_IMAGE_ROWS));
 	return S_OK;
 }
 
@@ -139,10 +148,28 @@ void MediaStream::Shutdown()
 	_attributes.reset();
 }
 
+HRESULT MediaStream::ConvertToNV12(IMFSample* inSample, IMFSample** outSample)
+{
+	RETURN_HR_IF_NULL(E_POINTER, inSample);
+	RETURN_HR_IF_NULL(E_POINTER, outSample);
+
+	RETURN_IF_FAILED(_converter->ProcessInput(0, inSample, 0));
+	WINTRACE(L"MediaStream::ConvertToNV12 process input");
+
+	MFT_OUTPUT_DATA_BUFFER buffer = {};
+	//buffer.pSample = outSample;
+	DWORD status = 0;
+	RETURN_IF_FAILED(_converter->ProcessOutput(0, 1, &buffer, &status));
+	WINTRACE(L"MediaStream::ConvertToNV12 process output");
+	*outSample = buffer.pSample;
+	WINTRACE(L"MediaStream::ConvertToNV12 status:%u", status);
+	return S_OK;
+}
+
 // IMFMediaEventGenerator
 STDMETHODIMP MediaStream::BeginGetEvent(IMFAsyncCallback* pCallback, IUnknown* punkState)
 {
-	WINTRACE(L"MediaSource::BeginGetEvent");
+	//WINTRACE(L"MediaSource::BeginGetEvent");
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_queue);
 
@@ -152,7 +179,7 @@ STDMETHODIMP MediaStream::BeginGetEvent(IMFAsyncCallback* pCallback, IUnknown* p
 
 STDMETHODIMP MediaStream::EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** ppEvent)
 {
-	WINTRACE(L"MediaStream::EndGetEvent");
+	//WINTRACE(L"MediaStream::EndGetEvent");
 	RETURN_HR_IF_NULL(E_POINTER, ppEvent);
 	*ppEvent = nullptr;
 	winrt::slim_lock_guard lock(_lock);
@@ -210,7 +237,7 @@ STDMETHODIMP MediaStream::GetStreamDescriptor(IMFStreamDescriptor** ppStreamDesc
 
 STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 {
-	WINTRACE(L"MediaStream::RequestSample pToken:%p", pToken);
+	WINTRACE(L"MediaStream::RequestSample pToken:%p format:'%s'", pToken, GUID_ToStringW(_format).c_str());
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_allocator || !_queue);
 
@@ -218,22 +245,21 @@ STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 	RETURN_IF_FAILED(_allocator->AllocateSample(&sample));
 	RETURN_IF_FAILED(sample->RemoveAllBuffers());
 
-	wil::com_ptr_nothrow<IMFMediaBuffer> buffer;
-	if (_texture && _renderTarget && _textFormat)
-	{
-		_renderTarget->BeginDraw();
-		_renderTarget->Clear(D2D1::ColorF(0, 0, 1, 1));
-		auto rc = D2D1::RectF(0, 0, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
-		wchar_t time[32];
-		auto len = wsprintf(time, L"Time: %I64i", MFGetSystemTime());
-		_renderTarget->DrawTextW(time, len, _textFormat.get(), rc, _whiteBrush.get());
-		_renderTarget->EndDraw();
-		RETURN_IF_FAILED(MFCreateDXGISurfaceBuffer(__uuidof(ID3D11Texture2D), _texture.get(), 0, 0, &buffer));
-		RETURN_IF_FAILED(sample->AddBuffer(buffer.get()));
-	}
-
 	RETURN_IF_FAILED(sample->SetSampleTime(MFGetSystemTime()));
 	RETURN_IF_FAILED(sample->SetSampleDuration(333333));
+
+	// generate & convert if needed
+	RETURN_IF_FAILED(_generator.Generate(sample.get()));
+	if (_format == MFVideoFormat_NV12)
+	{
+		wil::com_ptr_nothrow<IMFSample> outSample;
+		//RETURN_IF_FAILED(_allocator->AllocateSample(&outSample));
+
+		RETURN_IF_FAILED(ConvertToNV12(sample.get(), &outSample));
+
+		sample.attach(outSample.detach());
+	}
+
 	if (pToken)
 	{
 		RETURN_IF_FAILED(sample->SetUnknown(MFSampleExtension_Token, pToken));

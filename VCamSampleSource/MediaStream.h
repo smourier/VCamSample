@@ -21,7 +21,8 @@ public:
 public:
 	MediaStream() :
 		_index(0),
-		_state(MF_STREAM_STATE_STOPPED)
+		_state(MF_STREAM_STATE_STOPPED),
+		_format(GUID_NULL)
 	{
 		SetBaseAttributesTraceName(L"MediaStreamAtts");
 	}
@@ -33,6 +34,7 @@ public:
 	HRESULT Start(IMFMediaType* type);
 	HRESULT Stop();
 	void Shutdown();
+	HRESULT ConvertToNV12(IMFSample* inSample, IMFSample** outSample);
 
 private:
 #if _DEBUG
@@ -44,13 +46,12 @@ private:
 
 	winrt::slim_mutex  _lock;
 	MF_STREAM_STATE _state;
+	FrameGenerator _generator;
+	GUID _format;
+	wil::com_ptr_nothrow<IMFTransform> _converter;
 	wil::com_ptr_nothrow<IMFStreamDescriptor> _descriptor;
 	wil::com_ptr_nothrow<IMFMediaEventQueue> _queue;
 	wil::com_ptr_nothrow<IMFMediaSource> _source;
 	wil::com_ptr_nothrow<IMFVideoSampleAllocatorEx> _allocator;
-	wil::com_ptr_nothrow<ID3D11Texture2D> _texture;
-	wil::com_ptr_nothrow<ID2D1RenderTarget> _renderTarget;
-	wil::com_ptr_nothrow<ID2D1SolidColorBrush> _whiteBrush;
-	wil::com_ptr_nothrow<IDWriteTextFormat> _textFormat;
 	int _index;
 };

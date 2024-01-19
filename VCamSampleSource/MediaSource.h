@@ -1,10 +1,8 @@
 #pragma once
 
-#include "Undocumented.h"
-
 struct MediaStream;
 
-struct MediaSource : winrt::implements<MediaSource, CBaseAttributes<IMFAttributes>, IMFMediaSource2, IMFGetService, IKsControl, IMFSampleAllocatorControl>
+struct MediaSource : winrt::implements<MediaSource, CBaseAttributes<IMFAttributes>, IMFMediaSourceEx, IMFGetService, IKsControl, IMFSampleAllocatorControl>
 {
 public:
 	// IMFMediaEventGenerator

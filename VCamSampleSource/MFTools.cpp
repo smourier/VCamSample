@@ -15,7 +15,7 @@ void TraceMFAttributes(IUnknown* unknown, PCWSTR prefix)
 	unknown->QueryInterface(&atts);
 	if (!atts)
 	{
-		WINTRACE(L"%s%p is not an IMFAttributes", prefix, unknown);
+		WINTRACE(L"%s:%p is not an IMFAttributes", prefix, unknown);
 		return;
 	}
 
