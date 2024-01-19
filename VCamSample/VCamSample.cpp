@@ -103,10 +103,11 @@ HRESULT UnregisterVirtualCamera()
 	if (!_vcam)
 		return S_OK;
 
-	auto hr = _vcam->Shutdown();
-	WINTRACE(L"Shutdown VCam hr:0x%08X", hr);
+	// NOTE: we don't call Shutdown or this will cause 2 Shutdown calls to the media source and will prevent proper removing
+	//auto hr = _vcam->Shutdown();
+	//WINTRACE(L"Shutdown VCam hr:0x%08X", hr);
 
-	hr = _vcam->Remove();
+	auto hr = _vcam->Remove();
 	WINTRACE(L"Remove VCam hr:0x%08X", hr);
 	return S_OK;
 }

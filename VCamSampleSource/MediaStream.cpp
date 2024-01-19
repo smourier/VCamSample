@@ -129,6 +129,7 @@ HRESULT MediaStream::SetD3DManager(IUnknown* manager)
 {
 	RETURN_HR_IF_NULL(E_POINTER, manager);
 
+	// make sure the video processor works on GPU
 	RETURN_IF_FAILED(_converter->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, (ULONG_PTR)manager));
 	RETURN_IF_FAILED(_allocator->SetDirectXManager(manager));
 	RETURN_IF_FAILED(_generator.SetD3DManager(manager, NUM_IMAGE_COLS, NUM_IMAGE_ROWS));
@@ -154,15 +155,12 @@ HRESULT MediaStream::ConvertToNV12(IMFSample* inSample, IMFSample** outSample)
 	RETURN_HR_IF_NULL(E_POINTER, outSample);
 
 	RETURN_IF_FAILED(_converter->ProcessInput(0, inSample, 0));
-	WINTRACE(L"MediaStream::ConvertToNV12 process input");
 
+	// let converter build the sample for us, it works because we gave it the D3DManager
 	MFT_OUTPUT_DATA_BUFFER buffer = {};
-	//buffer.pSample = outSample;
 	DWORD status = 0;
 	RETURN_IF_FAILED(_converter->ProcessOutput(0, 1, &buffer, &status));
-	WINTRACE(L"MediaStream::ConvertToNV12 process output");
 	*outSample = buffer.pSample;
-	WINTRACE(L"MediaStream::ConvertToNV12 status:%u", status);
 	return S_OK;
 }
 

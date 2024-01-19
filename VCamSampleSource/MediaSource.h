@@ -24,7 +24,7 @@ public:
 	STDMETHOD(GetStreamAttributes)(DWORD dwStreamIdentifier, IMFAttributes** ppAttributes);
 	STDMETHOD(SetD3DManager)(IUnknown* pManager);
 
-	// IMFMediaSource2
+	// IMFMediaSource2 : we don't currently use it, change IMFMediaSourceEx to IMFMediaSource2 to enable it
 	STDMETHOD(SetMediaType)(DWORD dwStreamID, IMFMediaType* pMediaType);
 
 	// IMFGetService
@@ -67,7 +67,8 @@ private:
 			id == winrt::guid_of<IMFDeviceSourceStatus>())
 			return E_NOINTERFACE;
 
-		if (id == winrt::guid_of<IMFRealTimeClientEx>())
+		if (id == winrt::guid_of<IMFRealTimeClientEx>() ||
+			id == winrt::guid_of<IMFMediaSource2>())
 			return E_NOINTERFACE;
 
 		RETURN_HR_MSG(E_NOINTERFACE, "MediaSource QueryInterface failed on IID %s", GUID_ToStringW(id).c_str());
