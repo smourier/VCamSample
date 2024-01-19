@@ -25,7 +25,7 @@ You should now see something like this (changing in real time):
 ## Notes
 
 * The media source uses `Direct2D` and `DirectWrite` to create streaming samples. For that, it requires a Direct3D manager to be provided by the environment. In this sample code, if the Direct3D manager is not provided (through a call `IMediaSource:SetD3DManager`) then samples are provided but their buffer are left untouched (empty).
-* The media source provided RGB32 and NV12 formats. Samples are initially created as RGB32 (DirectX/Direct2D) and converted to NV12 using Media Foundation's [Video Processor MFT](https://learn.microsoft.com/en-us/windows/win32/medfound/video-processor-mft). The way it's used (GPU) therefore also depends on a D3D environment.
+* The media source provides RGB32 and NV12 formats. Samples are initially created as RGB32 (DirectX/Direct2D) and converted to NV12 using Media Foundation's [Video Processor MFT](https://learn.microsoft.com/en-us/windows/win32/medfound/video-processor-mft). The way it's used (GPU) therefore also depends on a D3D environment.
 * It means the VCamSampleSource will "work" (aka respond to sample requests) but output nothing visible in environments that don't call `IMediaSource:SetD3DManager`. WebCam handlers embedded in Chrome or Edge, etc. axe examples of such D3D-less environments.
 * It's relatively easy to modify the code to provide your own streaming buffers in the case where D3D is absent and support these environements. The code to change is located in `MediaStream::RequestSample` method.
 
