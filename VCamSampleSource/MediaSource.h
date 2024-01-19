@@ -50,7 +50,7 @@ public:
 		{
 			auto stream = winrt::make_self<MediaStream>();
 			stream->Initialize(this, i);
-			_streams[i] = stream.detach();
+			_streams[i].attach(stream.detach()); // this is needed because of wil+winrt mumbo-jumbo, as "_streams[i] = stream.detach()" just cause one extra AddRef
 		}
 	}
 
