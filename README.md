@@ -1,2 +1,2 @@
 # VCamSample
-Windows 11 virtual camera sample code.
+Media Foundation Virtual Camera Sample (Windows 11+)
