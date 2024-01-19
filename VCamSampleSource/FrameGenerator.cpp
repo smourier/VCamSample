@@ -42,31 +42,79 @@ HRESULT FrameGenerator::SetD3DManager(IUnknown* manager, UINT width, UINT height
 	RETURN_IF_FAILED(d2d1Factory->CreateDxgiSurfaceRenderTarget(surface.get(), props, &_renderTarget));
 	RETURN_IF_FAILED(_renderTarget->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 1), &_whiteBrush));
 
-	wil::com_ptr_nothrow<IDWriteFactory> dwrite;
-	RETURN_IF_FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown**)&dwrite));
-	RETURN_IF_FAILED(dwrite->CreateTextFormat(L"Consolas", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 40, L"", &_textFormat));
+	RETURN_IF_FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown**)&_dwrite));
+	RETURN_IF_FAILED(_dwrite->CreateTextFormat(L"Segoe UI Emoji", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 40, L"", &_textFormat));
+	RETURN_IF_FAILED(_textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER));
+	RETURN_IF_FAILED(_textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER));
 	_width = width;
 	_height = height;
 	return S_OK;
 }
 
-HRESULT FrameGenerator::Generate(IMFSample* sample)
+HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format)
 {
 	RETURN_HR_IF_NULL(E_POINTER, sample);
 
-	if (_texture && _renderTarget && _textFormat)
+	if (_texture && _renderTarget && _textFormat && _dwrite && _whiteBrush)
 	{
 		_renderTarget->BeginDraw();
 		_renderTarget->Clear(D2D1::ColorF(0, 0, 1, 1));
-		auto rc = D2D1::RectF(0, 0, (FLOAT)_width, (FLOAT)_height);
-		wchar_t time[32];
-		auto len = wsprintf(time, L"Time: %I64i", MFGetSystemTime());
-		_renderTarget->DrawTextW(time, len, _textFormat.get(), rc, _whiteBrush.get());
+
+		// draw some HSL blocks
+		const float divisor = 20;
+		for (UINT i = 0; i < _width / divisor; i++)
+		{
+			for (UINT j = 0; j < _height / divisor; j++)
+			{
+				wil::com_ptr_nothrow<ID2D1SolidColorBrush> brush;
+				auto color = HSL2RGB((float)i / (_height / divisor), 1, ((float)j / (_width / divisor)));
+				RETURN_IF_FAILED(_renderTarget->CreateSolidColorBrush(color, &brush));
+				_renderTarget->FillRectangle(D2D1::Rect(i * divisor, j * divisor, (i + 1) * divisor, (j + 1) * divisor), brush.get());
+			}
+		}
+
+		auto radius = divisor * 2;
+		const float padding = 1;
+		_renderTarget->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(radius + padding, radius + padding), radius, radius), _whiteBrush.get());
+		_renderTarget->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(radius + padding, _height - radius - padding), radius, radius), _whiteBrush.get());
+		_renderTarget->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(_width - radius - padding, radius + padding), radius, radius), _whiteBrush.get());
+		_renderTarget->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(_width - radius - padding, _height - radius - padding), radius, radius), _whiteBrush.get());
+		_renderTarget->DrawRectangle(D2D1::Rect(radius, radius, _width - radius, _height - radius), _whiteBrush.get());
+
+		// draw time & resolution at center
+		// note: we could optimize here and compute layout only once if text doesn't change (depending on the font, etc.)
+		wchar_t time[128];
+		SYSTEMTIME st;
+		GetSystemTime(&st);
+		wchar_t fmt[8];
+		if (format == MFVideoFormat_NV12)
+		{
+			lstrcpy(fmt, L"NV12");
+		}
+		else
+		{
+			lstrcpy(fmt, L"RGB32");
+		}
+		auto len = wsprintf(time, L"Time: %02u:%02u:%02u.%03u\nFrame (%s): %I64i\nResolution: %u x %u", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, fmt, _frame, _width, _height);
+
+		wil::com_ptr_nothrow<IDWriteTextLayout> layout;
+		RETURN_IF_FAILED(_dwrite->CreateTextLayout(time, len, _textFormat.get(), _width, _height, &layout));
+
+		DWRITE_TEXT_METRICS metrics;
+		RETURN_IF_FAILED(layout->GetMetrics(&metrics));
+		auto pa = layout->GetParagraphAlignment();
+		auto ta = layout->GetTextAlignment();
+		WINTRACE("pa:%u ta:%u len:%u metrics:%f %f, %f %f %i, %f %f, %f", pa, ta, len, metrics.width, metrics.height, metrics.layoutWidth, metrics.layoutHeight, metrics.lineCount, metrics.left, metrics.top, metrics.widthIncludingTrailingWhitespace);
+
+		//_renderTarget->DrawTextLayout(D2D1::Point2F((_width - metrics.width) / 2.0f, (_height - metrics.height) / 2.0f), layout.get(), _whiteBrush.get());
+		_renderTarget->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), _whiteBrush.get());
 		_renderTarget->EndDraw();
 
+		// create a buffer from this and add to sample
 		wil::com_ptr_nothrow<IMFMediaBuffer> buffer;
 		RETURN_IF_FAILED(MFCreateDXGISurfaceBuffer(__uuidof(ID3D11Texture2D), _texture.get(), 0, 0, &buffer));
 		RETURN_IF_FAILED(sample->AddBuffer(buffer.get()));
+		_frame++;
 	}
 
 	return S_OK;

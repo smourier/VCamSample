@@ -14,7 +14,7 @@ wil::com_ptr_nothrow<IMFVirtualCamera> _vcam;
 DWORD _vcamCookie;
 
 ATOM MyRegisterClass(HINSTANCE hInstance);
-BOOL InitInstance(HINSTANCE, int);
+HWND InitInstance(HINSTANCE, int);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 HRESULT RegisterVirtualCamera();
@@ -37,7 +37,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			{
 				WinTrace(2, 0, str); // 2 => error
 #ifndef _DEBUG
-				TaskDialog(nullptr, nullptr, L"VCamSample Error", L"A fatal error has occured. Press OK to terminate.", str, TDCBF_OK_BUTTON, TD_WARNING_ICON, nullptr);
+				TaskDialog(nullptr, nullptr, _title, L"A fatal error has occured. Press OK to terminate.", str, TDCBF_OK_BUTTON, TD_WARNING_ICON, nullptr);
 #endif
 			}
 		});
@@ -45,23 +45,35 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	LoadStringW(hInstance, IDS_APP_TITLE, _title, MAX_LOADSTRING);
 	LoadStringW(hInstance, IDC_VCAMSAMPLE, _windowClass, MAX_LOADSTRING);
 	MyRegisterClass(hInstance);
-	if (InitInstance(hInstance, nCmdShow))
+	auto hwnd = InitInstance(hInstance, nCmdShow);
+	if (hwnd)
 	{
 		winrt::init_apartment();
 		if (SUCCEEDED(MFStartup(MF_VERSION)))
 		{
 			if (SUCCEEDED(RegisterVirtualCamera()))
 			{
-				auto accelerators = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_VCAMSAMPLE));
-				MSG msg;
-				while (GetMessage(&msg, nullptr, 0, 0))
-				{
-					if (!TranslateAccelerator(msg.hwnd, accelerators, &msg))
-					{
-						TranslateMessage(&msg);
-						DispatchMessage(&msg);
-					}
-				}
+				TASKDIALOGCONFIG config{};
+				config.cbSize = sizeof(TASKDIALOGCONFIG);
+				config.hInstance = hInstance;
+				config.hwndParent = hwnd;
+				config.pszWindowTitle = _title;
+				config.pszMainInstruction = L"VCam was started, you can now run a program such as Windows Camera to visualize the output.\nPress Close to stop VCam and exit this program.";
+				config.pszContent = L"This may stop VCam access for visualizing programs too.";
+				config.pszMainIcon = TD_INFORMATION_ICON;
+				config.dwCommonButtons = TDCBF_CLOSE_BUTTON;
+				TaskDialogIndirect(&config, nullptr, nullptr, nullptr);
+
+				//auto accelerators = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_VCAMSAMPLE));
+				//MSG msg;
+				//while (GetMessage(&msg, nullptr, 0, 0))
+				//{
+				//	if (!TranslateAccelerator(msg.hwnd, accelerators, &msg))
+				//	{
+				//		TranslateMessage(&msg);
+				//		DispatchMessage(&msg);
+				//	}
+				//}
 
 				UnregisterVirtualCamera();
 			}
@@ -128,17 +140,17 @@ ATOM MyRegisterClass(HINSTANCE instance)
 	return RegisterClassExW(&wcex);
 }
 
-BOOL InitInstance(HINSTANCE instance, int cmd)
+HWND InitInstance(HINSTANCE instance, int cmd)
 {
 	_instance = instance;
-	auto hwnd = CreateWindowW(_windowClass, _title, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, instance, nullptr);
+	auto hwnd = CreateWindowW(_windowClass, _title, WS_OVERLAPPEDWINDOW, 0, 0, 600, 400, nullptr, nullptr, instance, nullptr);
 	if (!hwnd)
-		return FALSE;
+		return nullptr;
 
 	CenterWindow(hwnd);
 	ShowWindow(hwnd, cmd);
 	UpdateWindow(hwnd);
-	return TRUE;
+	return hwnd;
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)

@@ -5,6 +5,7 @@ std::wstring to_wstring(const std::string& s);
 const std::wstring GUID_ToStringW(const GUID& guid);
 const std::string GUID_ToStringA(const GUID& guid);
 const std::wstring PROPVARIANT_ToString(const PROPVARIANT& pv);
+D2D1_COLOR_F HSL2RGB(const float h, const float s, const float l);
 
 namespace wil
 {

@@ -22,8 +22,8 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 
 	auto types = wil::make_unique_cotaskmem_array<wil::com_ptr_nothrow<IMFMediaType>>(2);
 
-#define NUM_IMAGE_ROWS 480
-#define NUM_IMAGE_COLS 640
+#define NUM_IMAGE_COLS 1280 // 640
+#define NUM_IMAGE_ROWS 960 //480
 
 	wil::com_ptr_nothrow<IMFMediaType> nv12Type;
 	RETURN_IF_FAILED(MFCreateMediaType(&nv12Type));
@@ -235,7 +235,7 @@ STDMETHODIMP MediaStream::GetStreamDescriptor(IMFStreamDescriptor** ppStreamDesc
 
 STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 {
-	WINTRACE(L"MediaStream::RequestSample pToken:%p format:'%s'", pToken, GUID_ToStringW(_format).c_str());
+	//WINTRACE(L"MediaStream::RequestSample pToken:%p format:'%s'", pToken, GUID_ToStringW(_format).c_str());
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_allocator || !_queue);
 
@@ -247,7 +247,7 @@ STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 	RETURN_IF_FAILED(sample->SetSampleDuration(333333));
 
 	// generate & convert if needed
-	RETURN_IF_FAILED(_generator.Generate(sample.get()));
+	RETURN_IF_FAILED(_generator.Generate(sample.get(), _format));
 	if (_format == MFVideoFormat_NV12)
 	{
 		wil::com_ptr_nothrow<IMFSample> outSample;

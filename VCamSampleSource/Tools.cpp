@@ -176,3 +176,51 @@ void CenterWindow(HWND hwnd, bool useCursorPos)
 
 	SetWindowPos(hwnd, NULL, (GetSystemMetrics(SM_CXSCREEN) - width) / 2, (GetSystemMetrics(SM_CYSCREEN) - height) / 2, 0, 0, SWP_NOREDRAW | SWP_NOSIZE | SWP_NOZORDER);
 }
+
+inline float HUE2RGB(const float p, const float q, float t)
+{
+	if (t < 0)
+	{
+		t += 1;
+	}
+
+	if (t > 1)
+	{
+		t -= 1;
+	}
+
+	if (t < 1 / 6.0f)
+		return p + (q - p) * 6 * t;
+
+	if (t < 1 / 2.0f)
+		return q;
+
+	if (t < 2 / 3.0f)
+		return p + (q - p) * (2 / 3.0f - t) * 6;
+
+	return p;
+
+}
+
+D2D1_COLOR_F HSL2RGB(const float h, const float s, const float l)
+{
+	D2D1_COLOR_F result;
+	result.a = 1;
+
+	if (!s)
+	{
+		result.r = l;
+		result.g = l;
+		result.b = l;
+	}
+	else
+	{
+		auto q = l < 0.5f ? l * (1 + s) : l + s - l * s;
+		auto p = 2 * l - q;
+		result.r = HUE2RGB(p, q, h + 1 / 3.0f);
+		result.g = HUE2RGB(p, q, h);
+		result.b = HUE2RGB(p, q, h - 1 / 3.0f);
+	}
+	return result;
+
+}
