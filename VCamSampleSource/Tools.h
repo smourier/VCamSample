@@ -2,10 +2,14 @@
 
 std::string to_string(const std::wstring& ws);
 std::wstring to_wstring(const std::string& s);
-const std::wstring GUID_ToStringW(const GUID& guid);
-const std::string GUID_ToStringA(const GUID& guid);
+const std::wstring GUID_ToStringW(const GUID& guid, bool resolve = true);
+const std::string GUID_ToStringA(const GUID& guid, bool resolve = true);
 const std::wstring PROPVARIANT_ToString(const PROPVARIANT& pv);
 D2D1_COLOR_F HSL2RGB(const float h, const float s, const float l);
+const std::wstring GetProcessName(DWORD pid);
+const LSTATUS RegWriteKey(HKEY key, PCWSTR path, HKEY* outKey);
+const LSTATUS RegWriteValue(HKEY key, PCWSTR name, const std::wstring& value);
+const LSTATUS RegWriteValue(HKEY key, PCWSTR name, DWORD value);
 
 namespace wil
 {

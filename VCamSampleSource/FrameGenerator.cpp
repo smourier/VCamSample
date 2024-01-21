@@ -103,7 +103,7 @@ HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format)
 		auto len = wsprintf(time, L"Time: %02u:%02u:%02u.%03u\nFrame (%s): %I64i\nResolution: %u x %u", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, fmt, _frame, _width, _height);
 
 		wil::com_ptr_nothrow<IDWriteTextLayout> layout;
-		RETURN_IF_FAILED(_dwrite->CreateTextLayout(time, len, _textFormat.get(), _width, _height, &layout));
+		RETURN_IF_FAILED(_dwrite->CreateTextLayout(time, len, _textFormat.get(), (FLOAT)_width, (FLOAT)_height, &layout));
 
 		DWRITE_TEXT_METRICS metrics;
 		RETURN_IF_FAILED(layout->GetMetrics(&metrics));

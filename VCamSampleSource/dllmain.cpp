@@ -99,16 +99,15 @@ STDAPI DllRegisterServer()
 {
 	std::wstring exePath = wil::GetModuleFileNameW(_hModule).get();
 	WINTRACE(L"DllRegisterServer '%s'", exePath.c_str());
-	std::wstring path = L"Software\\Classes\\CLSID\\" + GUID_ToStringW(CLSID_VCam) + L"\\InprocServer32";
+	auto clsid = GUID_ToStringW(CLSID_VCam, false);
+	std::wstring path = L"Software\\Classes\\CLSID\\" + clsid + L"\\InprocServer32";
 
 	// note: a vcam *must* be registered in HKEY_LOCAL_MACHINE
 	// for the frame server to be able to talk with it.
 	registry_key key;
-	RETURN_IF_WIN32_ERROR(RegCreateKeyEx(HKEY_LOCAL_MACHINE, path.c_str(), 0, nullptr, 0, KEY_WRITE, nullptr, key.put(), nullptr));
-	RETURN_IF_WIN32_ERROR(RegSetValueEx(key.get(), nullptr, 0, REG_SZ, reinterpret_cast<BYTE const*>(exePath.c_str()), static_cast<uint32_t>((exePath.size() + 1) * sizeof(wchar_t))));
-
-	std::wstring value = L"Both";
-	RETURN_IF_WIN32_ERROR(RegSetValueEx(key.get(), L"ThreadingModel", 0, REG_SZ, reinterpret_cast<BYTE const*>(value.c_str()), static_cast<uint32_t>((value.size() + 1) * sizeof(wchar_t))));
+	RETURN_IF_WIN32_ERROR(RegWriteKey(HKEY_LOCAL_MACHINE, path.c_str(), key.put()));
+	RETURN_IF_WIN32_ERROR(RegWriteValue(key.get(), nullptr, exePath));
+	RETURN_IF_WIN32_ERROR(RegWriteValue(key.get(), L"ThreadingModel", L"Both"));
 	return S_OK;
 }
 
@@ -116,9 +115,8 @@ STDAPI DllUnregisterServer()
 {
 	std::wstring exePath = wil::GetModuleFileNameW(_hModule).get();
 	WINTRACE(L"DllUnregisterServer '%s'", exePath.c_str());
-	std::wstring path = L"Software\\Classes\\CLSID\\";
-	path += GUID_ToStringW(CLSID_VCam);
-
+	auto clsid = GUID_ToStringW(CLSID_VCam, false);
+	std::wstring path = L"Software\\Classes\\CLSID\\" + clsid;
 	RETURN_IF_WIN32_ERROR(RegDeleteTree(HKEY_LOCAL_MACHINE, path.c_str()));
 	return S_OK;
 }
