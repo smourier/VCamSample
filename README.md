@@ -15,25 +15,25 @@ To test the project:
 * Run the VCamSample app.
 * Run for example the Windows Camera app or using a Web Browser ImageCapture API
 
-You should now see something like this (changing in real time):
+You should now see something like this in Camera App
 
 ![Screenshot 2024-01-22 131726](https://github.com/smourier/VCamSample/assets/5328574/50b27acb-3cf7-4d41-9298-84f7c1358148)
 
-In Windows' Edge Web Browser using this testing page: https://googlechrome.github.io/samples/image-capture/grab-frame-take-photo.html.
+And this in Windows' Edge Web Browser using this testing page: https://googlechrome.github.io/samples/image-capture/grab-frame-take-photo.html.
 
 ![Screenshot 2024-01-22 133220](https://github.com/smourier/VCamSample/assets/5328574/1f7d34e9-5646-4f26-bc9a-534e3bc9d625)
 
 ## Notes
 
-* The media source uses `Direct2D` and `DirectWrite` to create frames. Then it will create Media Foundation sample from that. To create MF samples, it can use:
-  * The GPU, if a Direct3D manager has been provided by the environment. This is the case of the Windows 11 camera app. In contrary, WebCam handlers embedded in Chrome or Edge, Teams, etc. axe examples of D3D-less environments.
-  * The CPU, if no Direct3D environment has been provided. In this case, the media source uses a WIC bitmap as a render target and it then copies the bits over to an MF sample.
+* The media source uses `Direct2D` and `DirectWrite` to create images. It will then create Media Foundation samples from these. To create MF samples, it can use:
+  * The GPU, if a Direct3D manager has been provided by the environment. This is the case of the Windows 11 camera app.
+  * The CPU, if no Direct3D environment has been provided. In this case, the media source uses a WIC bitmap as a render target and it then copies the bits over to an MF sample. ImageCapture API code embedded in Chrome or Edge, Teams, etc. is an example of such a D3D-less environment.
   * If you want to force CPU usage at all times, you can change the code in `MediaStream::SetD3DManager` and put the lines here in comment.
 
 * The media source provides RGB32 and NV12 formats as most setups prefer the NV12 format. Samples are initially created as RGB32 (Direct2D) and converted to NV12. To convert the samples, the media source uses two ways:
   * The GPU, if a Direct3D manager has been provided, using Media Foundation's [Video Processor MFT](https://learn.microsoft.com/en-us/windows/win32/medfound/video-processor-mft).
   * The CPU, if no Direct3D environment has been provided. In this case, the RGB to NV12 conversion is done in the code (so on the CPU).
-  * If you want to force RGB32 mode, you can change the code in `MediaStream::Initialize` and set the media types array number to 1 (check comments).
+  * If you want to force RGB32 mode, you can change the code in `MediaStream::Initialize` and set the media types array size to 1 (check comments in the code).
 
 
 ## Tracing
