@@ -160,6 +160,7 @@
     <ClInclude Include="MediaStream.h" />
     <ClInclude Include="MFTools.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="Tools.h" />
     <ClInclude Include="Undocumented.h" />
     <ClInclude Include="WinTrace.h" />
@@ -184,6 +185,9 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="VCamSampleSource.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="VCamSampleSource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
