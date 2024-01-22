@@ -13,14 +13,15 @@ To test the project:
 * Build in debug or release
 * Go to the build output and register the media source (a COM object) with a command similar to this: `regsvr32 VCamSampleSource.dll` (you *must* run this as administrator, it' not possible to register a Virtual Camera media source in `HKCU`, only in `HKLM` since it will be loaded by multiple processes)
 * Run the VCamSample app.
-* Run for example the Windows Camera app
+* Run for example the Windows Camera app or using a Web Browser ImageCapture API
 
 You should now see something like this (changing in real time):
 
+![Screenshot 2024-01-22 131726](https://github.com/smourier/VCamSample/assets/5328574/50b27acb-3cf7-4d41-9298-84f7c1358148)
 
-![Screenshot 2024-01-19 192711](https://github.com/smourier/VCamSample/assets/5328574/60cb92c0-0a3a-4077-af49-a42e9ce97101)
+In Windows' Edge Web Browser using this testing page: https://googlechrome.github.io/samples/image-capture/grab-frame-take-photo.html.
 
-
+![Screenshot 2024-01-22 133220](https://github.com/smourier/VCamSample/assets/5328574/1f7d34e9-5646-4f26-bc9a-534e3bc9d625)
 
 ## Notes
 
