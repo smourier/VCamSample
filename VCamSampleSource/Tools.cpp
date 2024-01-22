@@ -261,3 +261,50 @@ const LSTATUS RegWriteValue(HKEY key, PCWSTR name, DWORD value)
 {
 	return RegSetValueEx(key, name, 0, REG_DWORD, reinterpret_cast<BYTE const*>(&value), sizeof(value));
 }
+
+static inline void RGB24ToYUY2(int r, int g, int b, BYTE* y, BYTE* u, BYTE* v)
+{
+	*y = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
+	*u = ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128;
+	*v = ((112 * r - 94 * g - 18 * b + 128) >> 8) + 128;
+}
+
+static inline void RGB24ToY(int r, int g, int b, BYTE* y)
+{
+	*y = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
+}
+
+static inline void RGB32ToNV12(BYTE rgb1[8], BYTE rgb2[8], BYTE* y1, BYTE* y2, BYTE* uv)
+{
+	RGB24ToYUY2(rgb1[2], rgb1[1], rgb1[0], y1, uv, uv + 1);
+	RGB24ToY(rgb1[6], rgb1[5], rgb1[4], y1 + 1);
+	RGB24ToYUY2(rgb2[2], rgb2[1], rgb2[0], y2, uv, uv + 1);
+	RGB24ToY(rgb2[6], rgb2[5], rgb2[4], y2 + 1);
+};
+
+HRESULT RGB32ToNV12(BYTE* input, ULONG inputSize, LONG inputStride, UINT width, UINT height, BYTE* output, ULONG ouputSize, LONG outputStride)
+{
+	RETURN_HR_IF_NULL(E_INVALIDARG, input);
+	RETURN_HR_IF_NULL(E_INVALIDARG, output);
+	RETURN_HR_IF(E_UNEXPECTED, width * 4 * height > inputSize);
+	RETURN_HR_IF(E_UNEXPECTED, width * 1.5 * height > ouputSize);
+
+	for (DWORD h = 0; h < height - 1; h += 2)
+	{
+		auto rgb1 = h * inputStride + input;
+		auto rgb2pRGB2 = (h + 1) * inputStride + input;
+		auto y1 = h * outputStride + output;
+		auto y2 = (h + 1) * outputStride + output;
+		auto uv = (h / 2 + height) * outputStride + output;
+		for (DWORD w = 0; w < width; w += 2)
+		{
+			RGB32ToNV12(rgb1, rgb2pRGB2, y1, y2, uv);
+			rgb1 += 8;
+			rgb2pRGB2 += 8;
+			y1 += 2;
+			y2 += 2;
+			uv += 2;
+		}
+	}
+	return S_OK;
+}

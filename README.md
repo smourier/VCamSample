@@ -24,11 +24,15 @@ You should now see something like this (changing in real time):
 
 ## Notes
 
-* The media source uses `Direct2D` and `DirectWrite` to create streaming samples. For that, it requires a Direct3D manager to be provided by the environment. In this sample code, if the Direct3D manager is not provided (through a call `IMediaSource:SetD3DManager`) then samples are provided but their buffer are left untouched (empty).
-* The media source provides RGB32 and NV12 formats. Samples are initially created as RGB32 (DirectX/Direct2D) and converted to NV12 using Media Foundation's [Video Processor MFT](https://learn.microsoft.com/en-us/windows/win32/medfound/video-processor-mft). The way it's used (GPU) therefore also depends on a D3D environment.
-* It means the VCamSampleSource will "work" (aka respond to sample requests) but output nothing visible in environments that don't call `IMediaSource:SetD3DManager`. WebCam handlers embedded in Chrome or Edge, etc. axe examples of such D3D-less environments.
-* It's relatively easy to modify the code to provide your own streaming buffers in the case where D3D is absent and support these environements. The code to change is located in `MediaStream::RequestSample` method.
+* The media source uses `Direct2D` and `DirectWrite` to create frames. Then it will create Media Foundation sample from that. To create MF samples, it can use:
+  * The GPU, if a Direct3D manager has been provided by the environment. This is the case of the Windows 11 camera app. In contrary, WebCam handlers embedded in Chrome or Edge, Teams, etc. axe examples of D3D-less environments.
+  * The CPU, if no Direct3D environment has been provided. In this case, the media source uses a WIC bitmap as a render target and it then copies the bits over to an MF sample.
+  * If you want to force CPU usage at all times, you can change the code in `MediaStream::SetD3DManager` and put the lines here in comment.
 
+* The media source provides RGB32 and NV12 formats as most setups prefer the NV12 format. Samples are initially created as RGB32 (Direct2D) and converted to NV12. To convert the samples, the media source uses two ways:
+  * The GPU, if a Direct3D manager has been provided, using Media Foundation's [Video Processor MFT](https://learn.microsoft.com/en-us/windows/win32/medfound/video-processor-mft).
+  * The CPU, if no Direct3D environment has been provided. In this case, the RGB to NV12 conversion is done in the code (so on the CPU).
+  * If you want to force RGB32 mode, you can change the code in `MediaStream::Initialize` and set the media types array number to 1 (check comments).
 
 
 ## Tracing

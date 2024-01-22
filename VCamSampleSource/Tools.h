@@ -10,6 +10,14 @@ const std::wstring GetProcessName(DWORD pid);
 const LSTATUS RegWriteKey(HKEY key, PCWSTR path, HKEY* outKey);
 const LSTATUS RegWriteValue(HKEY key, PCWSTR name, const std::wstring& value);
 const LSTATUS RegWriteValue(HKEY key, PCWSTR name, DWORD value);
+HRESULT RGB32ToNV12(BYTE* input, ULONG inputSize, LONG inputStride, UINT width, UINT height, BYTE* output, ULONG ouputSize, LONG outputStride);
+
+_Ret_range_(== , _expr)
+inline bool assert_true(bool _expr)
+{
+	assert(_expr);
+	return _expr;
+}
 
 namespace wil
 {

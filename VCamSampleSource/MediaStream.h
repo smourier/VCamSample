@@ -34,7 +34,6 @@ public:
 	HRESULT Start(IMFMediaType* type);
 	HRESULT Stop();
 	void Shutdown();
-	HRESULT ConvertToNV12(IMFSample* inSample, IMFSample** outSample);
 
 private:
 #if _DEBUG
@@ -48,7 +47,6 @@ private:
 	MF_STREAM_STATE _state;
 	FrameGenerator _generator;
 	GUID _format;
-	wil::com_ptr_nothrow<IMFTransform> _converter;
 	wil::com_ptr_nothrow<IMFStreamDescriptor> _descriptor;
 	wil::com_ptr_nothrow<IMFMediaEventQueue> _queue;
 	wil::com_ptr_nothrow<IMFMediaSource> _source;
