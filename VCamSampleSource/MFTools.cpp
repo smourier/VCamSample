@@ -87,5 +87,8 @@ std::wstring PKSIDENTIFIER_ToString(PKSIDENTIFIER id, ULONG length)
 	if (id->Set == KSPROPSETID_Pin)
 		return L"KSPROPSETID_Pin " + KSPROPERTY_PIN_ToString(id->Id) + L" " + flags;
 
+	if (id->Set == KSPROPSETID_Connection)
+		return L"KSPROPSETID_Connection " + KSPROPSETID_Connection_ToString(id->Id) + L" " + flags;
+
 	return std::format(L"{} {} {}", GUID_ToStringW(id->Set), id->Id, flags);
 }

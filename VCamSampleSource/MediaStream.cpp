@@ -31,6 +31,7 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 	rgbType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
 	rgbType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
 	MFSetAttributeSize(rgbType.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
+	rgbType->SetUINT32(MF_MT_DEFAULT_STRIDE, NUM_IMAGE_COLS * 4);
 	rgbType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	rgbType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
 	MFSetAttributeRatio(rgbType.get(), MF_MT_FRAME_RATE, 30, 1);
@@ -48,6 +49,7 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 		nv12Type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 		nv12Type->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
 		MFSetAttributeSize(nv12Type.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
+		nv12Type->SetUINT32(MF_MT_DEFAULT_STRIDE, (UINT)(NUM_IMAGE_COLS * 1.5));
 		MFSetAttributeRatio(nv12Type.get(), MF_MT_FRAME_RATE, 30, 1);
 		// frame size * pixel bit size * framerate
 		bitrate = (uint32_t)(NUM_IMAGE_COLS * 1.5 * NUM_IMAGE_ROWS * 8 * 30);
@@ -259,4 +261,39 @@ STDMETHODIMP MediaStream::GetStreamState(MF_STREAM_STATE* value)
 	RETURN_HR_IF_NULL(E_POINTER, value);
 	*value = _state;
 	return S_OK;
+}
+
+// IKsControl
+STDMETHODIMP_(NTSTATUS) MediaStream::KsProperty(PKSPROPERTY property, ULONG length, LPVOID data, ULONG dataLength, ULONG* bytesReturned)
+{
+	WINTRACE(L"MediaStream::KsProperty len:%u data:%p dataLength:%u", length, data, dataLength);
+	RETURN_HR_IF_NULL(E_POINTER, property);
+	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
+	winrt::slim_lock_guard lock(_lock);
+
+	WINTRACE(L"MediaStream::KsProperty prop:%s", PKSIDENTIFIER_ToString(property, length).c_str());
+
+	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
+}
+
+STDMETHODIMP_(NTSTATUS) MediaStream::KsMethod(PKSMETHOD method, ULONG length, LPVOID data, ULONG dataLength, ULONG* bytesReturned)
+{
+	WINTRACE(L"MediaStream::KsMethod len:%u data:%p dataLength:%u", length, data, dataLength);
+	RETURN_HR_IF_NULL(E_POINTER, method);
+	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
+	winrt::slim_lock_guard lock(_lock);
+
+	WINTRACE(L"MediaStream::KsMethod method:%s", PKSIDENTIFIER_ToString(method, length).c_str());
+
+	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
+}
+
+STDMETHODIMP_(NTSTATUS) MediaStream::KsEvent(PKSEVENT evt, ULONG length, LPVOID data, ULONG dataLength, ULONG* bytesReturned)
+{
+	WINTRACE(L"MediaStream::KsEvent evt:%p len:%u data:%p dataLength:%u", evt, length, data, dataLength);
+	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
+	winrt::slim_lock_guard lock(_lock);
+
+	WINTRACE(L"MediaStream::KsEvent event:%s", PKSIDENTIFIER_ToString(evt, length).c_str());
+	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
 }

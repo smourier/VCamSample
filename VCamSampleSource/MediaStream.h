@@ -1,6 +1,6 @@
 #pragma once
 
-struct MediaStream : winrt::implements<MediaStream, CBaseAttributes<IMFAttributes>, IMFMediaStream2>
+struct MediaStream : winrt::implements<MediaStream, CBaseAttributes<IMFAttributes>, IMFMediaStream2, IKsControl>
 {
 public:
 	// IMFMediaEventGenerator
@@ -17,6 +17,11 @@ public:
 	// IMFMediaStream2
 	STDMETHOD(SetStreamState)(MF_STREAM_STATE value);
 	STDMETHOD(GetStreamState)(MF_STREAM_STATE* value);
+
+	// IKsControl
+	STDMETHOD_(NTSTATUS, KsProperty)(PKSPROPERTY Property, ULONG PropertyLength, LPVOID PropertyData, ULONG DataLength, ULONG* BytesReturned);
+	STDMETHOD_(NTSTATUS, KsMethod)(PKSMETHOD Method, ULONG MethodLength, LPVOID MethodData, ULONG DataLength, ULONG* BytesReturned);
+	STDMETHOD_(NTSTATUS, KsEvent)(PKSEVENT Event, ULONG EventLength, LPVOID EventData, ULONG DataLength, ULONG* BytesReturned);
 
 public:
 	MediaStream() :

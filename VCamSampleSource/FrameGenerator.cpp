@@ -264,7 +264,7 @@ HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format, IMFSample** 
 				hr = lock->GetDataPointer(&wicSize, &wicPointer);
 				if (SUCCEEDED(hr))
 				{
-					//WINTRACE(L"WIC stride:%u WIC size:%u MF pitch:%u MF length:%u frame:%u format:%s", wicStride, wicSize, pitch, length, _frame, GUID_ToStringW(format).c_str());
+					WINTRACE(L"WIC stride:%u WIC size:%u MF pitch:%u MF length:%u frame:%u format:%s", wicStride, wicSize, pitch, length, _frame, GUID_ToStringW(format).c_str());
 					if (format == MFVideoFormat_NV12)
 					{
 						// note we could use MF's converter too

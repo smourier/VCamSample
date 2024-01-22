@@ -12,5 +12,6 @@ const std::wstring KSPROPERTY_CAMERACONTROL_PERFRAMESETTING_PROPERTY_ToString(UL
 const std::wstring KSPROPERTY_CAMERACONTROL_REGION_OF_INTEREST_ToString(ULONG value);
 const std::wstring KSPROPERTY_TOPOLOGY_ToString(ULONG value);
 const std::wstring KSPROPERTY_PIN_ToString(ULONG value);
+const std::wstring KSPROPSETID_Connection_ToString(ULONG value);
 
 
