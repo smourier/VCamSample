@@ -19,9 +19,14 @@ You should now see something like this in Camera App
 
 ![Screenshot 2024-01-22 131726](https://github.com/smourier/VCamSample/assets/5328574/50b27acb-3cf7-4d41-9298-84f7c1358148)
 
-And this in Windows' Edge Web Browser using this testing page: https://googlechrome.github.io/samples/image-capture/grab-frame-take-photo.html.
+Something like this  Windows' Edge Web Browser using this testing page: https://googlechrome.github.io/samples/image-capture/grab-frame-take-photo.html
 
 ![Screenshot 2024-01-22 133220](https://github.com/smourier/VCamSample/assets/5328574/1f7d34e9-5646-4f26-bc9a-534e3bc9d625)
+
+Something like this in OBS (Video Capture Device):
+
+![image](https://github.com/smourier/VCamSample/assets/5328574/47768c63-2979-40ab-ae70-fca632b97d81)
+
 
 ## Notes
 
