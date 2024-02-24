@@ -51,17 +51,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		winrt::init_apartment();
 		if (SUCCEEDED(MFStartup(MF_VERSION)))
 		{
-			if (SUCCEEDED(RegisterVirtualCamera()))
+			TASKDIALOGCONFIG config{};
+			config.cbSize = sizeof(TASKDIALOGCONFIG);
+			config.hInstance = hInstance;
+			config.hwndParent = hwnd;
+			config.pszWindowTitle = _title;
+			config.dwCommonButtons = TDCBF_CLOSE_BUTTON;
+			auto hr = RegisterVirtualCamera();
+			if (SUCCEEDED(hr))
 			{
-				TASKDIALOGCONFIG config{};
-				config.cbSize = sizeof(TASKDIALOGCONFIG);
-				config.hInstance = hInstance;
-				config.hwndParent = hwnd;
-				config.pszWindowTitle = _title;
 				config.pszMainInstruction = L"VCam was started, you can now run a program such as Windows Camera to visualize the output.\nPress Close to stop VCam and exit this program.";
 				config.pszContent = L"This may stop VCam access for visualizing programs too.";
 				config.pszMainIcon = TD_INFORMATION_ICON;
-				config.dwCommonButtons = TDCBF_CLOSE_BUTTON;
 				TaskDialogIndirect(&config, nullptr, nullptr, nullptr);
 
 				//auto accelerators = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_VCAMSAMPLE));
@@ -76,6 +77,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				//}
 
 				UnregisterVirtualCamera();
+			}
+			else
+			{
+				config.pszMainInstruction = L"VCam could not be started. Make sure you have registered the VCamSampleSource dll.\nPress Close to exit this program.";
+				wchar_t text[1024];
+				wchar_t errorText[256];
+				FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, hr, 0, errorText, _countof(errorText), nullptr);
+				wsprintf(text, L"Error 0x%08X (%u): %s", hr, hr, errorText);
+				config.pszContent = text;
+
+				config.pszMainIcon = TD_ERROR_ICON;
+				TaskDialogIndirect(&config, nullptr, nullptr, nullptr);
 			}
 
 			_vcam.reset();
