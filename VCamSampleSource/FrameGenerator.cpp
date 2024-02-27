@@ -31,7 +31,7 @@ HRESULT FrameGenerator::EnsureRenderTarget(UINT width, UINT height)
 	return S_OK;
 }
 
-bool FrameGenerator::HasD3DManager()
+const bool FrameGenerator::HasD3DManager()
 {
 	return _texture != nullptr;
 }
@@ -41,14 +41,11 @@ HRESULT FrameGenerator::SetD3DManager(IUnknown* manager, UINT width, UINT height
 	RETURN_HR_IF_NULL(E_POINTER, manager);
 	RETURN_HR_IF(E_INVALIDARG, !width || !height);
 
-	wil::com_ptr_nothrow<IMFDXGIDeviceManager> mgr;
-	RETURN_IF_FAILED(manager->QueryInterface(&mgr));
-
-	HANDLE handle;
-	RETURN_IF_FAILED(mgr->OpenDeviceHandle(&handle));
+	RETURN_IF_FAILED(manager->QueryInterface(&_dxgiManager));
+	RETURN_IF_FAILED(_dxgiManager->OpenDeviceHandle(&_deviceHandle));
 
 	wil::com_ptr_nothrow<ID3D11Device> device;
-	RETURN_IF_FAILED(mgr->GetVideoService(handle, IID_PPV_ARGS(&device)));
+	RETURN_IF_FAILED(_dxgiManager->GetVideoService(_deviceHandle, IID_PPV_ARGS(&device)));
 
 	// create a texture/surface to write
 	CD3D11_TEXTURE2D_DESC desc
@@ -102,7 +99,7 @@ HRESULT FrameGenerator::SetD3DManager(IUnknown* manager, UINT width, UINT height
 	MFSetAttributeSize(outputType.get(), MF_MT_FRAME_SIZE, width, height);
 	RETURN_IF_FAILED(_converter->SetOutputType(0, outputType.get(), 0));
 
-	//// make sure the video processor works on GPU
+	// make sure the video processor works on GPU
 	RETURN_IF_FAILED(_converter->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, (ULONG_PTR)manager));
 	return S_OK;
 }
