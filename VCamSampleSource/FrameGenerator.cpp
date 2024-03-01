@@ -195,22 +195,20 @@ HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format, IMFSample** 
 		wil::com_ptr_nothrow<IDWriteTextLayout> layout;
 		RETURN_IF_FAILED(_dwrite->CreateTextLayout(text, len, _textFormat.get(), (FLOAT)_width, (FLOAT)_height, &layout));
 
-		DWRITE_TEXT_METRICS metrics;
-		RETURN_IF_FAILED(layout->GetMetrics(&metrics));
 		_renderTarget->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), _whiteBrush.get());
 		_renderTarget->EndDraw();
 	}
 
 	// build a sample using either D3D/DXGI (GPU) or WIC (CPU)
-	wil::com_ptr_nothrow<IMFMediaBuffer> buffer;
+	wil::com_ptr_nothrow<IMFMediaBuffer> mediaBuffer;
 	if (HasD3DManager())
 	{
 		// remove all existing buffers
 		RETURN_IF_FAILED(sample->RemoveAllBuffers());
 
 		// create a buffer from this and add to sample
-		RETURN_IF_FAILED(MFCreateDXGISurfaceBuffer(__uuidof(ID3D11Texture2D), _texture.get(), 0, 0, &buffer));
-		RETURN_IF_FAILED(sample->AddBuffer(buffer.get()));
+		RETURN_IF_FAILED(MFCreateDXGISurfaceBuffer(__uuidof(ID3D11Texture2D), _texture.get(), 0, 0, &mediaBuffer));
+		RETURN_IF_FAILED(sample->AddBuffer(mediaBuffer.get()));
 
 		// if we're on GPU & format is not RGB, convert using GPU
 		if (format == MFVideoFormat_NV12)
@@ -234,13 +232,13 @@ HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format, IMFSample** 
 		return S_OK;
 	}
 
-	RETURN_IF_FAILED(sample->GetBufferByIndex(0, &buffer));
+	RETURN_IF_FAILED(sample->GetBufferByIndex(0, &mediaBuffer));
 	wil::com_ptr_nothrow<IMF2DBuffer2> buffer2D;
 	BYTE* scanline;
 	LONG pitch;
 	BYTE* start;
 	DWORD length;
-	RETURN_IF_FAILED(buffer->QueryInterface(IID_PPV_ARGS(&buffer2D)));
+	RETURN_IF_FAILED(mediaBuffer->QueryInterface(IID_PPV_ARGS(&buffer2D)));
 	RETURN_IF_FAILED(buffer2D->Lock2DSize(MF2DBuffer_LockFlags_Write, &scanline, &pitch, &start, &length));
 
 	wil::com_ptr_nothrow<IWICBitmapLock> lock;
