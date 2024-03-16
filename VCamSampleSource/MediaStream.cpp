@@ -219,7 +219,7 @@ STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 
 	if (pToken)
 	{
-		RETURN_IF_FAILED(sample->SetUnknown(MFSampleExtension_Token, pToken));
+		RETURN_IF_FAILED(outSample->SetUnknown(MFSampleExtension_Token, pToken));
 	}
 	RETURN_IF_FAILED(_queue->QueueEventParamUnk(MEMediaSample, GUID_NULL, S_OK, outSample.get()));
 	return S_OK;
