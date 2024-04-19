@@ -6,7 +6,7 @@ There are two projects in the solution:
 * **VCamSampleSource**: the Media Source that provides RGB32 and NV12 streaming samples.
 * **VCamSample**: the "driver" application that does very little but calls `MFCreateVirtualCamera`.
 
-
+Note there's a **VCamNetSample** .NET C# port of this project available here : https://github.com/smourier/VCamNetSample
 
 To test the virtual cam:
 
