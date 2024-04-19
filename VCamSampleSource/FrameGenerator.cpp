@@ -16,11 +16,11 @@ HRESULT FrameGenerator::EnsureRenderTarget(UINT width, UINT height)
 		wil::com_ptr_nothrow<IWICImagingFactory> wicFactory;
 		RETURN_IF_FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&wicFactory)));
 
-		RETURN_IF_FAILED(wicFactory->CreateBitmap(width, height, GUID_WICPixelFormat32bppBGR, WICBitmapCacheOnDemand, &_bitmap));
+		RETURN_IF_FAILED(wicFactory->CreateBitmap(width, height, GUID_WICPixelFormat32bppPBGRA, WICBitmapCacheOnDemand, &_bitmap));
 
 		D2D1_RENDER_TARGET_PROPERTIES props{};
 		props.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-		props.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
+		props.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
 		RETURN_IF_FAILED(d2d1Factory->CreateWicBitmapRenderTarget(_bitmap.get(), props, &_renderTarget));
 
 		RETURN_IF_FAILED(CreateRenderTargetResources(width, height));
@@ -31,7 +31,7 @@ HRESULT FrameGenerator::EnsureRenderTarget(UINT width, UINT height)
 	return S_OK;
 }
 
-const bool FrameGenerator::HasD3DManager()
+const bool FrameGenerator::HasD3DManager() const
 {
 	return _texture != nullptr;
 }

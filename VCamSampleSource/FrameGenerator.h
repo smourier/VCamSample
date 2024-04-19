@@ -44,7 +44,7 @@ public:
 	}
 
 	HRESULT SetD3DManager(IUnknown* manager, UINT width, UINT height);
-	const bool HasD3DManager();
+	const bool HasD3DManager() const;
 	HRESULT EnsureRenderTarget(UINT width, UINT height);
 	HRESULT Generate(IMFSample* sample, REFGUID format, IMFSample** outSample);
 };
