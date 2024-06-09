@@ -42,6 +42,21 @@ Something like this in OBS (Video Capture Device):
 
 * The code crrently has an issue where the virtual camera screen is shown in the preview window of apps such as Microsoft Teams, but it's not rendered to the communicating party. Not sure why it doesn't fully work yet, if you know, just ping me!
 
+## Troubleshooting "Access Denied" on IMFVirtualCamera::Start method
+If you get access denied here, it's probably the same issue as here https://github.com/smourier/VCamSample/issues/1
+
+Here is a summary:
+
+* The COM object that serves as a Virtual Camera Source (here `VCamSampleSource.dll`) must be accessible by the two Windows 11 services **Frame Server** & **Frame Server Monitor** (running as `svchost.exe`).
+* These two services usually run as *Local Service* & *Local System* credentials respectively.
+* If you compile or build in a directory under your compiling user's root, for example something like `C:\Users\<your login>\source\repos\VCamSample\x64\Debug\` or somewhere restricted in some way, **it won't work** since these two services will need to access that.
+
+=> So the solution is just to either copy the output directory once built (or downloaded) somewhere where everyone has access and register `VCamSampleSource.dll` from there, or copy/checkout the whole repo where everyone has access and build and register there.
+
+Also, if  you downloaded the binaries from the internet, not compiled them by yourself, make sure you must remove the Mark of the Web (https://en.wikipedia.org/wiki/Mark_of_the_Web) click on "Unblock" on the .zip file you downloaded and press OK:
+
+![image](https://github.com/smourier/VCamSample/assets/5328574/5856b780-995d-483e-83e4-1f8afd5c7b2c)
+
 ## Tracing
 
 The code output lots of interesting traces. It's quite important in this virtual camera environment because there's not just your process that's involved but at least 4: the VCamSample app, the Windows Frame Server, the Windows camera monitor, and the reader app (camera, etc.). They all load the media source COM object in-process.
