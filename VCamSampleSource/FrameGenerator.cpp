@@ -286,7 +286,7 @@ HRESULT FrameGenerator::Generate(IMFSample* sample, REFGUID format, IMFSample** 
 				}
 			}
 		}
-		lock->Release();
+		lock.reset();
 	}
 
 	buffer2D->Unlock2D();
