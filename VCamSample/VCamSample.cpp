@@ -1,6 +1,15 @@
 #include "framework.h"
 #include "tools.h"
 #include "VCamSample.h"
+#include <vector>
+
+// Configuration interface for VCam
+MIDL_INTERFACE("12345678-1234-1234-1234-123456789ABC")
+IVCamConfiguration : public IUnknown
+{
+	STDMETHOD(SetConfiguration)(LPCWSTR url, UINT32 width, UINT32 height) = 0;
+	STDMETHOD(GetConfiguration)(LPWSTR* url, UINT32* width, UINT32* height) = 0;
+};
 
 #define MAX_LOADSTRING 100
 
@@ -13,10 +22,34 @@ WCHAR _windowClass[MAX_LOADSTRING];
 wil::com_ptr_nothrow<IMFVirtualCamera> _vcam;
 DWORD _vcamCookie;
 
+// Runtime UI window handles
+HWND _hwndMain = nullptr;
+HWND _hwndEditUrl = nullptr;
+HWND _hwndBtnStart = nullptr;
+HWND _hwndBtnStop = nullptr;
+HWND _hwndStatus = nullptr;
+HWND _hwndComboResolution = nullptr;
+HWND _hwndEditName = nullptr;
+
 ATOM MyRegisterClass(HINSTANCE hInstance);
 HWND InitInstance(HINSTANCE, int);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
+
+// Helper to parse resolution from combo box
+void GetSelectedResolution(UINT* width, UINT* height)
+{
+	*width = 1920; *height = 1080; // default
+	if (!_hwndComboResolution) return;
+	
+	int sel = (int)SendMessage(_hwndComboResolution, CB_GETCURSEL, 0, 0);
+	if (sel >= 0)
+	{
+		wchar_t text[64]{};
+		SendMessage(_hwndComboResolution, CB_GETLBTEXT, sel, (LPARAM)text);
+		swscanf_s(text, L"%ux%u", width, height);
+	}
+}
 HRESULT RegisterVirtualCamera();
 HRESULT UnregisterVirtualCamera();
 
@@ -43,6 +76,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		});
 
 	LoadStringW(hInstance, IDS_APP_TITLE, _title, MAX_LOADSTRING);
+	LoadStringW(hInstance, IDS_APP_TITLE, _title, MAX_LOADSTRING);
 	LoadStringW(hInstance, IDC_VCAMSAMPLE, _windowClass, MAX_LOADSTRING);
 	MyRegisterClass(hInstance);
 	auto hwnd = InitInstance(hInstance, nCmdShow);
@@ -51,51 +85,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		winrt::init_apartment();
 		if (SUCCEEDED(MFStartup(MF_VERSION)))
 		{
-			TASKDIALOGCONFIG config{};
-			config.cbSize = sizeof(TASKDIALOGCONFIG);
-			config.hInstance = hInstance;
-			config.hwndParent = hwnd;
-			config.pszWindowTitle = _title;
-			config.dwCommonButtons = TDCBF_CLOSE_BUTTON;
-			auto hr = RegisterVirtualCamera();
-			if (SUCCEEDED(hr))
+			// Normal message loop; the UI Start/Stop buttons manage the camera
+			HACCEL accelerators = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_VCAMSAMPLE));
+			MSG msg{};
+			while (GetMessage(&msg, nullptr, 0, 0))
 			{
-				config.pszMainInstruction = L"VCam was started, you can now run a program such as Windows Camera to visualize the output.\nPress Close to stop VCam and exit this program.";
-				config.pszContent = L"This may stop VCam access for visualizing programs too.";
-				config.pszMainIcon = TD_INFORMATION_ICON;
-				TaskDialogIndirect(&config, nullptr, nullptr, nullptr);
-
-				//auto accelerators = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_VCAMSAMPLE));
-				//MSG msg;
-				//while (GetMessage(&msg, nullptr, 0, 0))
-				//{
-				//	if (!TranslateAccelerator(msg.hwnd, accelerators, &msg))
-				//	{
-				//		TranslateMessage(&msg);
-				//		DispatchMessage(&msg);
-				//	}
-				//}
-
-				UnregisterVirtualCamera();
+				if (!TranslateAccelerator(msg.hwnd, accelerators, &msg))
+				{
+					TranslateMessage(&msg);
+					DispatchMessage(&msg);
+				}
 			}
-			else
-			{
-				config.pszMainInstruction = L"VCam could not be started. Make sure you have registered the VCamSampleSource dll.\nPress Close to exit this program.";
-				wchar_t text[1024];
-				wchar_t errorText[256];
-				FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, hr, 0, errorText, _countof(errorText), nullptr);
-				wsprintf(text, L"Error 0x%08X (%u): %s", hr, hr, errorText);
-				config.pszContent = text;
-
-				config.pszMainIcon = TD_ERROR_ICON;
-				TaskDialogIndirect(&config, nullptr, nullptr, nullptr);
-			}
-
+			// Ensure camera is removed on exit
+			UnregisterVirtualCamera();
 			_vcam.reset();
 			MFShutdown();
 		}
 	}
-
 	// cleanup & CRT leak checks
 	_CrtDumpMemoryLeaks();
 	WINTRACE(L"WinMain exiting '%s'", GetCommandLineW());
@@ -106,18 +112,28 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 HRESULT RegisterVirtualCamera()
 {
 	auto clsid = GUID_ToStringW(CLSID_VCam);
+	// Determine friendly name: from UI edit box, fallback to _title
+	wchar_t friendlyName[256]{};
+	if (_hwndEditName)
+	{
+		GetWindowTextW(_hwndEditName, friendlyName, _countof(friendlyName));
+	}
+	if (wcslen(friendlyName) == 0)
+	{
+		wcscpy_s(friendlyName, _title);
+	}
 	RETURN_IF_FAILED_MSG(MFCreateVirtualCamera(
 		MFVirtualCameraType_SoftwareCameraSource,
 		MFVirtualCameraLifetime_Session,
 		MFVirtualCameraAccess_CurrentUser,
-		_title,
+		friendlyName,
 		clsid.c_str(),
 		nullptr,
 		0,
 		&_vcam),
 		"Failed to create virtual camera");
 
-	WINTRACE(L"RegisterVirtualCamera '%s' ok", clsid.c_str());
+	WINTRACE(L"RegisterVirtualCamera '%s' ok, name '%s'", clsid.c_str(), friendlyName);
 	RETURN_IF_FAILED_MSG(_vcam->Start(nullptr), "Cannot start VCam");
 	WINTRACE(L"VCam was started");
 	return S_OK;
@@ -156,13 +172,92 @@ ATOM MyRegisterClass(HINSTANCE instance)
 HWND InitInstance(HINSTANCE instance, int cmd)
 {
 	_instance = instance;
-	auto hwnd = CreateWindowW(_windowClass, _title, WS_OVERLAPPEDWINDOW, 0, 0, 600, 400, nullptr, nullptr, instance, nullptr);
+	auto hwnd = CreateWindowW(_windowClass, _title, WS_OVERLAPPEDWINDOW, 0, 0, 780, 260, nullptr, nullptr, instance, nullptr);
 	if (!hwnd)
 		return nullptr;
 
 	CenterWindow(hwnd);
 	ShowWindow(hwnd, cmd);
 	UpdateWindow(hwnd);
+	_hwndMain = hwnd;
+
+	// Create UI controls
+	CreateWindowW(L"STATIC", L"MJPEG URL:", WS_VISIBLE | WS_CHILD, 16, 20, 100, 20, hwnd, (HMENU)IDC_STATIC_LABEL, instance, nullptr);
+	_hwndEditUrl = CreateWindowW(L"EDIT", L"http://", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL, 120, 18, 400, 24, hwnd, (HMENU)IDC_EDIT_URL, instance, nullptr);
+	
+	CreateWindowW(L"STATIC", L"Resolution:", WS_VISIBLE | WS_CHILD, 540, 20, 80, 20, hwnd, (HMENU)IDC_STATIC_RESOLUTION, instance, nullptr);
+	_hwndComboResolution = CreateWindowW(L"COMBOBOX", L"", WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL, 630, 18, 120, 200, hwnd, (HMENU)IDC_COMBO_RESOLUTION, instance, nullptr);
+
+	// Camera Name
+	CreateWindowW(L"STATIC", L"Camera Name:", WS_VISIBLE | WS_CHILD, 16, 96, 100, 20, hwnd, (HMENU)IDC_STATIC_NAME, instance, nullptr);
+	_hwndEditName = CreateWindowW(L"EDIT", _title, WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL, 120, 94, 400, 24, hwnd, (HMENU)IDC_EDIT_NAME, instance, nullptr);
+	
+	_hwndBtnStart = CreateWindowW(L"BUTTON", L"Start", WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 660, 54, 90, 28, hwnd, (HMENU)IDC_BTN_START, instance, nullptr);
+	_hwndBtnStop = CreateWindowW(L"BUTTON", L"Stop", WS_VISIBLE | WS_CHILD | WS_DISABLED, 660, 92, 90, 28, hwnd, (HMENU)IDC_BTN_STOP, instance, nullptr);
+	_hwndStatus = CreateWindowW(L"STATIC", L"Status: Idle", WS_VISIBLE | WS_CHILD, 16, 60, 620, 24, hwnd, (HMENU)IDC_STATIC_STATUS, instance, nullptr);
+
+	// Populate resolution dropdown
+	SendMessage(_hwndComboResolution, CB_ADDSTRING, 0, (LPARAM)L"640x480");
+	SendMessage(_hwndComboResolution, CB_ADDSTRING, 0, (LPARAM)L"1280x720");
+	SendMessage(_hwndComboResolution, CB_ADDSTRING, 0, (LPARAM)L"1920x1080");
+	SendMessage(_hwndComboResolution, CB_ADDSTRING, 0, (LPARAM)L"2560x1440");
+	SendMessage(_hwndComboResolution, CB_ADDSTRING, 0, (LPARAM)L"3840x2160");
+	SendMessage(_hwndComboResolution, CB_SETCURSEL, 2, 0); // Default to 1920x1080
+
+	// Load persisted URL, resolution and camera name from registry (HKLM so the service-loaded DLL sees the same values)
+	{
+		HKEY hKey;
+		if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+		{
+			DWORD type, size;
+			
+			// Load URL
+			size = 0;
+			if (RegQueryValueExW(hKey, L"URL", nullptr, &type, nullptr, &size) == ERROR_SUCCESS && size > 0)
+			{
+				std::vector<wchar_t> url(size / sizeof(wchar_t));
+				if (RegQueryValueExW(hKey, L"URL", nullptr, &type, (BYTE*)url.data(), &size) == ERROR_SUCCESS)
+				{
+					SetWindowTextW(_hwndEditUrl, url.data());
+				}
+			}
+			
+			// Load resolution
+			DWORD width = 1920, height = 1080;
+			size = sizeof(DWORD);
+			RegQueryValueExW(hKey, L"Width", nullptr, &type, (BYTE*)&width, &size);
+			size = sizeof(DWORD);
+			RegQueryValueExW(hKey, L"Height", nullptr, &type, (BYTE*)&height, &size);
+			
+			// Set combo box selection based on resolution
+			wchar_t resText[64];
+			swprintf_s(resText, L"%ux%u", width, height);
+			int count = (int)SendMessage(_hwndComboResolution, CB_GETCOUNT, 0, 0);
+			for (int i = 0; i < count; i++)
+			{
+				wchar_t itemText[64]{};
+				SendMessage(_hwndComboResolution, CB_GETLBTEXT, i, (LPARAM)itemText);
+				if (wcscmp(itemText, resText) == 0)
+				{
+					SendMessage(_hwndComboResolution, CB_SETCURSEL, i, 0);
+					break;
+				}
+			}
+			
+			// Load FriendlyName
+			size = 0;
+			if (RegQueryValueExW(hKey, L"FriendlyName", nullptr, &type, nullptr, &size) == ERROR_SUCCESS && size > 0)
+			{
+				std::vector<wchar_t> name(size / sizeof(wchar_t));
+				if (RegQueryValueExW(hKey, L"FriendlyName", nullptr, &type, (BYTE*)name.data(), &size) == ERROR_SUCCESS)
+				{
+					if (_hwndEditName) SetWindowTextW(_hwndEditName, name.data());
+				}
+			}
+
+			RegCloseKey(hKey);
+		}
+	}
 	return hwnd;
 }
 
@@ -193,6 +288,60 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case IDM_EXIT:
 			DestroyWindow(hwnd);
 			break;
+		case IDC_BTN_START:
+		{
+			wchar_t url[2048]{};
+			if (_hwndEditUrl) GetWindowTextW(_hwndEditUrl, url, _countof(url));
+			wchar_t friendlyName[256]{};
+			if (_hwndEditName) GetWindowTextW(_hwndEditName, friendlyName, _countof(friendlyName));
+			if (wcslen(friendlyName) == 0) wcscpy_s(friendlyName, _title);
+			
+			UINT width, height;
+			GetSelectedResolution(&width, &height);
+			
+			// Store configuration in HKEY_LOCAL_MACHINE (accessible by system services)
+			HKEY hKey;
+			LSTATUS result = RegCreateKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, nullptr, 
+				REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hKey, nullptr);
+			if (result == ERROR_SUCCESS)
+			{
+				DWORD urlBytes = (DWORD)((wcslen(url) + 1) * sizeof(WCHAR));
+				RegSetValueExW(hKey, L"URL", 0, REG_SZ, (const BYTE*)url, urlBytes);
+				DWORD nameBytes = (DWORD)((wcslen(friendlyName) + 1) * sizeof(WCHAR));
+				RegSetValueExW(hKey, L"FriendlyName", 0, REG_SZ, (const BYTE*)friendlyName, nameBytes);
+				RegSetValueExW(hKey, L"Width", 0, REG_DWORD, (const BYTE*)&width, sizeof(DWORD));
+				RegSetValueExW(hKey, L"Height", 0, REG_DWORD, (const BYTE*)&height, sizeof(DWORD));
+				RegCloseKey(hKey);
+				WINTRACE(L"Configuration stored in HKLM registry: name='%s' url='%s' %ux%u", friendlyName, url, width, height);
+			}
+			else
+			{
+				WINTRACE(L"Failed to write to HKLM registry, error: %d", result);
+			}
+			
+			auto hr = RegisterVirtualCamera();
+			if (SUCCEEDED(hr))
+			{
+				EnableWindow(_hwndBtnStart, FALSE);
+				EnableWindow(_hwndEditUrl, FALSE);
+				EnableWindow(_hwndComboResolution, FALSE);
+				EnableWindow(_hwndEditName, FALSE);
+				EnableWindow(_hwndBtnStop, TRUE);
+			}
+			else 
+			{
+				MessageBeep(MB_ICONERROR);
+			}
+		}
+		break;
+		case IDC_BTN_STOP:
+			UnregisterVirtualCamera();
+			EnableWindow(_hwndBtnStart, TRUE);
+			EnableWindow(_hwndEditUrl, TRUE);
+			EnableWindow(_hwndComboResolution, TRUE);
+			EnableWindow(_hwndEditName, TRUE);
+			EnableWindow(_hwndBtnStop, FALSE);
+			break;
 		default:
 			return DefWindowProc(hwnd, message, wParam, lParam);
 		}
@@ -207,6 +356,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hwnd, &ps);
 	}
 	break;
+
+	// No WM_TIMER used
 
 	case WM_DESTROY:
 		PostQuitMessage(0);

@@ -1,11 +1,11 @@
 #include "pch.h"
 #include "Undocumented.h"
 #include "Tools.h"
-#include "EnumNames.h"
 #include "MFTools.h"
 #include "FrameGenerator.h"
 #include "MediaStream.h"
 #include "MediaSource.h"
+#include <vector>
 
 HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 {
@@ -23,19 +23,30 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 	// set 1 here to force RGB32 only
 	auto types = wil::make_unique_cotaskmem_array<wil::com_ptr_nothrow<IMFMediaType>>(2);
 
-#define NUM_IMAGE_COLS 1280 // 640
-#define NUM_IMAGE_ROWS 960 //480
+	// Determine initial advertised width/height from MediaSource configuration (defaults to 1920x1080)
+	UINT32 advWidth = 1920, advHeight = 1080;
+	if (source)
+	{
+		// Try to downcast to our MediaSource and read its config members via interface
+		MediaSource* ms = static_cast<MediaSource*>(source);
+		// Best-effort: we don't expose direct getters; we can query current stream descriptor later too
+		// but here we just use the generator defaults set by MediaSource in constructor.
+		// To ensure we match, we'll also update generator resolution in Start based on negotiated type.
+		// If MediaSource applied SetResolution before, the generator will be created with that size.
+		// Use the SetResolution path to capture actual configured size if possible
+		// (no direct accessors available: keep advWidth/advHeight defaults)
+	}
 
 	wil::com_ptr_nothrow<IMFMediaType> rgbType;
 	RETURN_IF_FAILED(MFCreateMediaType(&rgbType));
 	rgbType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
 	rgbType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
-	MFSetAttributeSize(rgbType.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
-	rgbType->SetUINT32(MF_MT_DEFAULT_STRIDE, NUM_IMAGE_COLS * 4);
+	MFSetAttributeSize(rgbType.get(), MF_MT_FRAME_SIZE, advWidth, advHeight);
+	rgbType->SetUINT32(MF_MT_DEFAULT_STRIDE, advWidth * 4);
 	rgbType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	rgbType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
 	MFSetAttributeRatio(rgbType.get(), MF_MT_FRAME_RATE, 30, 1);
-	auto bitrate = (uint32_t)(NUM_IMAGE_COLS * NUM_IMAGE_ROWS * 4 * 8 * 30);
+	auto bitrate = (uint32_t)(advWidth * advHeight * 4 * 8 * 30);
 	rgbType->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
 	MFSetAttributeRatio(rgbType.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
 	types[0] = rgbType.detach();
@@ -48,11 +59,12 @@ HRESULT MediaStream::Initialize(IMFMediaSource* source, int index)
 		nv12Type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
 		nv12Type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 		nv12Type->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
-		MFSetAttributeSize(nv12Type.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
-		nv12Type->SetUINT32(MF_MT_DEFAULT_STRIDE, (UINT)(NUM_IMAGE_COLS * 1.5));
+	MFSetAttributeSize(nv12Type.get(), MF_MT_FRAME_SIZE, advWidth, advHeight);
+		// For NV12, default stride is bytes-per-row of the Y plane: equals width
+	nv12Type->SetUINT32(MF_MT_DEFAULT_STRIDE, (UINT)(advWidth));
 		MFSetAttributeRatio(nv12Type.get(), MF_MT_FRAME_RATE, 30, 1);
 		// frame size * pixel bit size * framerate
-		bitrate = (uint32_t)(NUM_IMAGE_COLS * 1.5 * NUM_IMAGE_ROWS * 8 * 30);
+	bitrate = (uint32_t)(advWidth * 1.5 * advHeight * 8 * 30);
 		nv12Type->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
 		MFSetAttributeRatio(nv12Type.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
 		types[1] = nv12Type.detach();
@@ -72,20 +84,72 @@ HRESULT MediaStream::Start(IMFMediaType* type)
 {
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_queue || !_allocator);
 
+	// Log incoming negotiated type
+	if (type)
+	{
+		TraceMFAttributes(type, L"MediaStream::Start negotiated type");
+	}
+
 	if (type)
 	{
 		RETURN_IF_FAILED(type->GetGUID(MF_MT_SUBTYPE, &_format));
-		WINTRACE(L"MediaStream::Start format: %s", GUID_ToStringW(_format).c_str());
+	}
+	else
+	{
+		// Try to get current media type from handler if none provided
+		wil::com_ptr_nothrow<IMFMediaTypeHandler> handler;
+		wil::com_ptr_nothrow<IMFMediaType> currentType;
+		if (_descriptor && SUCCEEDED(_descriptor->GetMediaTypeHandler(&handler)) && SUCCEEDED(handler->GetCurrentMediaType(&currentType)))
+		{
+			(void)currentType->GetGUID(MF_MT_SUBTYPE, &_format);
+			type = currentType.get();
+		}
+		else
+		{
+			// no media type provided and handler current type not available
+		}
+	}
+
+	// Determine negotiated frame size from the media type; fall back to defaults
+	UINT32 width = 1920, height = 1080;
+	if (type)
+	{
+		UINT32 w = 0, h = 0;
+		if (SUCCEEDED(MFGetAttributeSize(type, MF_MT_FRAME_SIZE, &w, &h)) && w > 0 && h > 0)
+		{
+			width = w; height = h;
+		}
+		else
+		{
+			// MF_MT_FRAME_SIZE missing; using defaults
+		}
 	}
 
 	// at this point, set D3D manager may have not been called
-	// so we want to create a D2D1 renter target anyway
-	RETURN_IF_FAILED(_generator.EnsureRenderTarget(NUM_IMAGE_COLS, NUM_IMAGE_ROWS));
+	// so we want to create a D2D1 render target anyway
 
+	// Do not call back into MediaSource here to avoid deadlock while MediaSource::Start holds its lock.
+	// The MediaSource constructor (and SetConfiguration) apply URL/Resolution to streams ahead of time.
+	
+	// Set resolution on generator to negotiated size (important for buffer sizing)
+	LOG_IF_FAILED(_generator.SetResolution(width, height));
+
+	// Create render target with correct resolution
+	// Ensure render target for negotiated size
+	{
+		HRESULT ehr = _generator.EnsureRenderTarget(width, height);
+		if (FAILED(ehr))
+		{
+			WINTRACE(L"EnsureRenderTarget failed 0x%08X", ehr);
+			return ehr;
+		}
+	}
+	// Initialize allocator with provided type
 	RETURN_IF_FAILED(_allocator->InitializeSampleAllocator(10, type));
 	RETURN_IF_FAILED(_queue->QueueEventParamVar(MEStreamStarted, GUID_NULL, S_OK, nullptr));
 	_state = MF_STREAM_STATE_RUNNING;
-	return S_OK;
+
+    return RequestSample(nullptr);
 }
 
 HRESULT MediaStream::Stop()
@@ -112,11 +176,13 @@ HRESULT MediaStream::SetAllocator(IUnknown* allocator)
 
 HRESULT MediaStream::SetD3DManager(IUnknown* manager)
 {
-	RETURN_HR_IF_NULL(E_POINTER, manager);
-
-	// comment these 2 lines to force CPU usage
-	RETURN_IF_FAILED(_allocator->SetDirectXManager(manager));
-	RETURN_IF_FAILED(_generator.SetD3DManager(manager, NUM_IMAGE_COLS, NUM_IMAGE_ROWS));
+	// If manager is null, we run in CPU mode; otherwise enable GPU path
+	if (manager)
+	{
+		RETURN_IF_FAILED(_allocator->SetDirectXManager(manager));
+		// Use current generator size (set during Start) for D3D path; the generator tracks the latest negotiated size
+		RETURN_IF_FAILED(_generator.SetD3DManager(manager, 0, 0));
+	}
 	return S_OK;
 }
 
@@ -158,7 +224,7 @@ STDMETHODIMP MediaStream::EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** p
 
 STDMETHODIMP MediaStream::GetEvent(DWORD dwFlags, IMFMediaEvent** ppEvent)
 {
-	WINTRACE(L"MediaStream::GetEvent");
+	// GetEvent
 	RETURN_HR_IF_NULL(E_POINTER, ppEvent);
 	*ppEvent = nullptr;
 	winrt::slim_lock_guard lock(_lock);
@@ -170,7 +236,7 @@ STDMETHODIMP MediaStream::GetEvent(DWORD dwFlags, IMFMediaEvent** ppEvent)
 
 STDMETHODIMP MediaStream::QueueEvent(MediaEventType met, REFGUID guidExtendedType, HRESULT hrStatus, const PROPVARIANT* pvValue)
 {
-	WINTRACE(L"MediaStream::QueueEvent");
+	// QueueEvent
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_queue);
 
@@ -181,7 +247,7 @@ STDMETHODIMP MediaStream::QueueEvent(MediaEventType met, REFGUID guidExtendedTyp
 // IMFMediaStream
 STDMETHODIMP MediaStream::GetMediaSource(IMFMediaSource** ppMediaSource)
 {
-	WINTRACE(L"MediaSource::GetMediaSource");
+	// GetMediaSource
 	RETURN_HR_IF_NULL(E_POINTER, ppMediaSource);
 	*ppMediaSource = nullptr;
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_source);
@@ -192,7 +258,7 @@ STDMETHODIMP MediaStream::GetMediaSource(IMFMediaSource** ppMediaSource)
 
 STDMETHODIMP MediaStream::GetStreamDescriptor(IMFStreamDescriptor** ppStreamDescriptor)
 {
-	WINTRACE(L"MediaStream::GetStreamDescriptor");
+	// GetStreamDescriptor
 	RETURN_HR_IF_NULL(E_POINTER, ppStreamDescriptor);
 	*ppStreamDescriptor = nullptr;
 	winrt::slim_lock_guard lock(_lock);
@@ -204,23 +270,64 @@ STDMETHODIMP MediaStream::GetStreamDescriptor(IMFStreamDescriptor** ppStreamDesc
 
 STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 {
-	//WINTRACE(L"MediaStream::RequestSample pToken:%p", pToken);
+	// RequestSample
 	winrt::slim_lock_guard lock(_lock);
 	RETURN_HR_IF(MF_E_SHUTDOWN, !_allocator || !_queue);
 
 	wil::com_ptr_nothrow<IMFSample> sample;
+	// allocate sample
 	RETURN_IF_FAILED(_allocator->AllocateSample(&sample));
 	RETURN_IF_FAILED(sample->SetSampleTime(MFGetSystemTime()));
 	RETURN_IF_FAILED(sample->SetSampleDuration(333333));
 
+	// Inspect pre-Generate buffers
+	DWORD preCount = 0; sample->GetBufferCount(&preCount);
+	// buffer count before generate: %u
+	for (DWORD i = 0; i < preCount; ++i)
+	{
+		wil::com_ptr_nothrow<IMFMediaBuffer> mb; if (SUCCEEDED(sample->GetBufferByIndex(i, &mb)))
+		{
+			DWORD curLen = 0, maxLen = 0; (void)mb->GetCurrentLength(&curLen); (void)mb->GetMaxLength(&maxLen);
+			wil::com_ptr_nothrow<IMF2DBuffer2> b2d; if (SUCCEEDED(mb->QueryInterface(IID_PPV_ARGS(&b2d))))
+			{
+				BYTE* sl = nullptr, *start = nullptr; LONG pitch = 0; DWORD len = 0;
+				if (SUCCEEDED(b2d->Lock2DSize(MF2DBuffer_LockFlags_Read, &sl, &pitch, &start, &len)))
+				{
+					// 2D pitch and len available
+					b2d->Unlock2D();
+				}
+			}
+		}
+	}
+
 	// generate frame
 	wil::com_ptr_nothrow<IMFSample> outSample;
-	RETURN_IF_FAILED(_generator.Generate(sample.get(), _format, &outSample));
+	// Generate frame
+	{
+		HRESULT ghr = _generator.Generate(sample.get(), _format, &outSample);
+		if (FAILED(ghr))
+		{
+			WINTRACE(L"Generate failed 0x%08X", ghr);
+			return ghr;
+		}
+	}
+	// frame generated
 
 	if (pToken)
 	{
 		RETURN_IF_FAILED(outSample->SetUnknown(MFSampleExtension_Token, pToken));
 	}
+	// Inspect output sample
+	DWORD postCount = 0; outSample->GetBufferCount(&postCount);
+	// output buffer count
+	for (DWORD i = 0; i < postCount; ++i)
+	{
+		wil::com_ptr_nothrow<IMFMediaBuffer> mb; if (SUCCEEDED(outSample->GetBufferByIndex(i, &mb)))
+		{
+			DWORD curLen = 0, maxLen = 0; (void)mb->GetCurrentLength(&curLen); (void)mb->GetMaxLength(&maxLen);
+		}
+	}
+
 	RETURN_IF_FAILED(_queue->QueueEventParamUnk(MEMediaSample, GUID_NULL, S_OK, outSample.get()));
 	return S_OK;
 }
@@ -228,8 +335,8 @@ STDMETHODIMP MediaStream::RequestSample(IUnknown* pToken)
 // IMFMediaStream2
 STDMETHODIMP MediaStream::SetStreamState(MF_STREAM_STATE value)
 {
-	WINTRACE(L"MediaStream::SetStreamState current:%u value:%u", _state, value);
-	if (_state = value)
+	// SetStreamState
+	if (_state == value)
 		return S_OK;
 	switch (value)
 	{
@@ -257,7 +364,7 @@ STDMETHODIMP MediaStream::SetStreamState(MF_STREAM_STATE value)
 
 STDMETHODIMP MediaStream::GetStreamState(MF_STREAM_STATE* value)
 {
-	WINTRACE(L"MediaStream::GetStreamState state:%u", _state);
+	// GetStreamState
 	RETURN_HR_IF_NULL(E_POINTER, value);
 	*value = _state;
 	return S_OK;
@@ -266,34 +373,48 @@ STDMETHODIMP MediaStream::GetStreamState(MF_STREAM_STATE* value)
 // IKsControl
 STDMETHODIMP_(NTSTATUS) MediaStream::KsProperty(PKSPROPERTY property, ULONG length, LPVOID data, ULONG dataLength, ULONG* bytesReturned)
 {
-	WINTRACE(L"MediaStream::KsProperty len:%u data:%p dataLength:%u", length, data, dataLength);
+	// KsProperty
 	RETURN_HR_IF_NULL(E_POINTER, property);
 	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
 	winrt::slim_lock_guard lock(_lock);
 
-	WINTRACE(L"MediaStream::KsProperty prop:%s", PKSIDENTIFIER_ToString(property, length).c_str());
+	// KsProperty details
 
 	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
 }
 
 STDMETHODIMP_(NTSTATUS) MediaStream::KsMethod(PKSMETHOD method, ULONG length, LPVOID data, ULONG dataLength, ULONG* bytesReturned)
 {
-	WINTRACE(L"MediaStream::KsMethod len:%u data:%p dataLength:%u", length, data, dataLength);
+	// KsMethod
 	RETURN_HR_IF_NULL(E_POINTER, method);
 	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
 	winrt::slim_lock_guard lock(_lock);
 
-	WINTRACE(L"MediaStream::KsMethod method:%s", PKSIDENTIFIER_ToString(method, length).c_str());
+	// KsMethod details
 
 	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
 }
 
 STDMETHODIMP_(NTSTATUS) MediaStream::KsEvent(PKSEVENT evt, ULONG length, LPVOID data, ULONG dataLength, ULONG* bytesReturned)
 {
-	WINTRACE(L"MediaStream::KsEvent evt:%p len:%u data:%p dataLength:%u", evt, length, data, dataLength);
+	// KsEvent
 	RETURN_HR_IF_NULL(E_POINTER, bytesReturned);
 	winrt::slim_lock_guard lock(_lock);
 
-	WINTRACE(L"MediaStream::KsEvent event:%s", PKSIDENTIFIER_ToString(evt, length).c_str());
+	// KsEvent details
 	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
+}
+
+HRESULT MediaStream::SetResolution(UINT32 width, UINT32 height)
+{
+	// SetResolution
+	winrt::slim_lock_guard lock(_lock);
+	return _generator.SetResolution(width, height);
+}
+
+HRESULT MediaStream::SetMjpegUrl(LPCWSTR url)
+{
+	// SetMjpegUrl
+	winrt::slim_lock_guard lock(_lock);
+	return _generator.SetMjpegUrl(url);
 }

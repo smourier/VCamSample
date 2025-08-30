@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "Undocumented.h"
 #include "Tools.h"
-#include "EnumNames.h"
 #include "MFTools.h"
 #include "FrameGenerator.h"
 #include "MediaStream.h"
@@ -221,6 +220,7 @@ STDMETHODIMP MediaSource::Start(IMFPresentationDescriptor* pPresentationDescript
 				wil::com_ptr_nothrow<IMFMediaType> type;
 				RETURN_IF_FAILED(desc->GetMediaTypeHandler(&handler));
 				RETURN_IF_FAILED(handler->GetCurrentMediaType(&type));
+				TraceMFAttributes(type.get(), L"MediaSource::Start selected current media type");
 
 				RETURN_IF_FAILED(_streams[index]->Start(type.get()));
 			}
@@ -292,7 +292,6 @@ STDMETHODIMP MediaSource::GetStreamAttributes(DWORD dwStreamIdentifier, IMFAttri
 STDMETHODIMP MediaSource::SetD3DManager(IUnknown* pManager)
 {
 	WINTRACE(L"MediaSource::SetD3DManager pManager:%p", pManager);
-	RETURN_HR_IF_NULL(E_POINTER, pManager);
 	winrt::slim_lock_guard lock(_lock);
 
 	for (DWORD i = 0; i < _streams.size(); i++)
@@ -382,4 +381,109 @@ STDMETHODIMP_(NTSTATUS) MediaSource::KsEvent(PKSEVENT evt, ULONG length, LPVOID 
 
 	WINTRACE(L"MediaSource::KsEvent event:%s", PKSIDENTIFIER_ToString(evt, length).c_str());
 	return HRESULT_FROM_WIN32(ERROR_SET_NOT_FOUND);
+}
+
+// IVCamConfiguration
+STDMETHODIMP MediaSource::SetConfiguration(LPCWSTR url, UINT32 width, UINT32 height)
+{
+	WINTRACE(L"MediaSource::SetConfiguration url:'%s' resolution:%ux%u", url ? url : L"(null)", width, height);
+	
+	winrt::slim_lock_guard lock(_lock);
+	
+	// Store configuration in member variables
+	if (url)
+		_mjpegUrl = url;
+	else
+		_mjpegUrl.clear();
+		
+	_configWidth = width;
+	_configHeight = height;
+	
+	// Also store in HKEY_LOCAL_MACHINE registry
+	HKEY hKey;
+	LSTATUS result = RegCreateKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, nullptr, 
+		REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hKey, nullptr);
+	if (result == ERROR_SUCCESS)
+	{
+		if (url)
+		{
+			DWORD urlBytes = (DWORD)((wcslen(url) + 1) * sizeof(WCHAR));
+			RegSetValueExW(hKey, L"URL", 0, REG_SZ, (const BYTE*)url, urlBytes);
+		}
+		else
+		{
+			RegSetValueExW(hKey, L"URL", 0, REG_SZ, (const BYTE*)L"", sizeof(WCHAR));
+		}
+		RegSetValueExW(hKey, L"Width", 0, REG_DWORD, (const BYTE*)&width, sizeof(DWORD));
+		RegSetValueExW(hKey, L"Height", 0, REG_DWORD, (const BYTE*)&height, sizeof(DWORD));
+		RegCloseKey(hKey);
+		WINTRACE(L"Configuration stored in HKLM registry");
+	}
+	else
+	{
+		WINTRACE(L"Failed to write to HKLM registry, error: %d", result);
+	}
+	
+	// Apply to existing streams
+	for (int i = 0; i < _numStreams; i++)
+	{
+		if (_streams[i])
+		{
+			_streams[i]->SetResolution(width, height);
+			if (url)
+				_streams[i]->SetMjpegUrl(url);
+		}
+	}
+	
+	WINTRACE(L"MediaSource::SetConfiguration complete");
+	return S_OK;
+}
+
+STDMETHODIMP MediaSource::GetConfiguration(LPWSTR* url, UINT32* width, UINT32* height)
+{
+	RETURN_HR_IF_NULL(E_POINTER, url);
+	RETURN_HR_IF_NULL(E_POINTER, width);
+	RETURN_HR_IF_NULL(E_POINTER, height);
+	
+	winrt::slim_lock_guard lock(_lock);
+	
+	*url = nullptr;
+	*width = _configWidth;
+	*height = _configHeight;
+	
+	// If member variables are empty, try reading from registry
+	if (_mjpegUrl.empty())
+	{
+		HKEY hKey;
+		LSTATUS result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, KEY_READ, &hKey);
+		if (result == ERROR_SUCCESS)
+		{
+			WCHAR urlBuffer[2048]{};
+			DWORD bufferSize = sizeof(urlBuffer);
+			DWORD type;
+			result = RegQueryValueExW(hKey, L"URL", nullptr, &type, (LPBYTE)urlBuffer, &bufferSize);
+			if (result == ERROR_SUCCESS && type == REG_SZ && wcslen(urlBuffer) > 0)
+			{
+				size_t urlSize = (wcslen(urlBuffer) + 1) * sizeof(WCHAR);
+				*url = (LPWSTR)CoTaskMemAlloc(urlSize);
+				if (*url)
+				{
+					wcscpy_s(*url, wcslen(urlBuffer) + 1, urlBuffer);
+				}
+			}
+			RegCloseKey(hKey);
+		}
+	}
+	else
+	{
+		size_t urlSize = (_mjpegUrl.length() + 1) * sizeof(WCHAR);
+		*url = (LPWSTR)CoTaskMemAlloc(urlSize);
+		if (*url)
+		{
+			wcscpy_s(*url, _mjpegUrl.length() + 1, _mjpegUrl.c_str());
+		}
+	}
+	
+	WINTRACE(L"MediaSource::GetConfiguration url:'%s' resolution:%ux%u", *url ? *url : L"(null)", *width, *height);
+	return S_OK;
 }

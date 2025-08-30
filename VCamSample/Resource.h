@@ -12,6 +12,17 @@
 #define IDI_VCAMSAMPLE			107
 #define IDI_SMALL				108
 #define IDC_VCAMSAMPLE			109
+
+// Runtime UI control IDs (created dynamically)
+#define IDC_EDIT_URL                2001
+#define IDC_BTN_START               2002
+#define IDC_BTN_STOP                2003
+#define IDC_STATIC_STATUS           2004
+#define IDC_STATIC_LABEL            2005
+#define IDC_COMBO_RESOLUTION        2006
+#define IDC_STATIC_RESOLUTION       2007
+#define IDC_STATIC_NAME             2008
+#define IDC_EDIT_NAME               2009
 #define IDC_MYICON				2
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1

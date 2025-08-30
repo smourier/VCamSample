@@ -1,8 +1,18 @@
 #pragma once
 
+#include <string>
+
+// Configuration interface for VCam
+MIDL_INTERFACE("12345678-1234-1234-1234-123456789ABC")
+IVCamConfiguration : public IUnknown
+{
+	STDMETHOD(SetConfiguration)(LPCWSTR url, UINT32 width, UINT32 height) = 0;
+	STDMETHOD(GetConfiguration)(LPWSTR* url, UINT32* width, UINT32* height) = 0;
+};
+
 struct MediaStream;
 
-struct MediaSource : winrt::implements<MediaSource, CBaseAttributes<IMFAttributes>, IMFMediaSourceEx, IMFGetService, IKsControl, IMFSampleAllocatorControl>
+struct MediaSource : winrt::implements<MediaSource, CBaseAttributes<IMFAttributes>, IMFMediaSourceEx, IMFGetService, IKsControl, IMFSampleAllocatorControl, IVCamConfiguration>
 {
 public:
 	// IMFMediaEventGenerator
@@ -50,9 +60,71 @@ public:
 			stream->Initialize(this, i);
 			_streams[i].attach(stream.detach()); // this is needed because of wil+winrt mumbo-jumbo, as "_streams[i] = stream.detach()" just cause one extra AddRef
 		}
+		
+		// Read configuration from HKEY_LOCAL_MACHINE (accessible by system services)
+		HKEY hKey;
+		LSTATUS result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, KEY_READ, &hKey);
+		if (result == ERROR_SUCCESS)
+		{
+			WCHAR urlBuffer[2048]{};
+			DWORD bufferSize = sizeof(urlBuffer);
+			DWORD type;
+			result = RegQueryValueExW(hKey, L"URL", nullptr, &type, (LPBYTE)urlBuffer, &bufferSize);
+			if (result == ERROR_SUCCESS && type == REG_SZ)
+			{
+				_mjpegUrl = urlBuffer;
+				WINTRACE(L"MediaSource: Read URL from HKLM: %s", _mjpegUrl.c_str());
+			}
+			else
+			{
+				_mjpegUrl = L"";
+				WINTRACE(L"MediaSource: Failed to read URL from HKLM, using empty");
+			}
+			
+			DWORD size = sizeof(DWORD);
+			result = RegQueryValueExW(hKey, L"Width", nullptr, &type, (LPBYTE)&_configWidth, &size);
+			if (result != ERROR_SUCCESS || type != REG_DWORD)
+			{
+				_configWidth = 1920;
+				WINTRACE(L"MediaSource: Failed to read Width from HKLM, using default 1920");
+			}
+			
+			size = sizeof(DWORD);
+			result = RegQueryValueExW(hKey, L"Height", nullptr, &type, (LPBYTE)&_configHeight, &size);
+			if (result != ERROR_SUCCESS || type != REG_DWORD)
+			{
+				_configHeight = 1080;
+				WINTRACE(L"MediaSource: Failed to read Height from HKLM, using default 1080");
+			}
+			
+			RegCloseKey(hKey);
+			WINTRACE(L"MediaSource: Configuration from HKLM: %s %ux%u", _mjpegUrl.c_str(), _configWidth, _configHeight);
+		}
+		else
+		{
+			// Default values
+			_mjpegUrl = L"";
+			_configWidth = 1920;
+			_configHeight = 1080;
+			WINTRACE(L"MediaSource: Failed to open HKLM registry, using defaults: %ux%u", _configWidth, _configHeight);
+		}
+
+		// Apply configuration immediately to streams so they don't query back into source during Start
+		for (auto i = 0; i < _numStreams; ++i)
+		{
+			if (_streams[i])
+			{
+				if (!_mjpegUrl.empty()) { _streams[i]->SetMjpegUrl(_mjpegUrl.c_str()); }
+				_streams[i]->SetResolution(_configWidth, _configHeight);
+			}
+		}
 	}
 
 	HRESULT Initialize(IMFAttributes* attributes);
+
+	// IVCamConfiguration
+	STDMETHOD(SetConfiguration)(LPCWSTR url, UINT32 width, UINT32 height);
+	STDMETHOD(GetConfiguration)(LPWSTR* url, UINT32* width, UINT32* height);
 
 private:
 #if _DEBUG
@@ -83,5 +155,10 @@ private:
 	winrt::com_array<wil::com_ptr_nothrow<MediaStream>> _streams;
 	wil::com_ptr_nothrow<IMFMediaEventQueue> _queue;
 	wil::com_ptr_nothrow<IMFPresentationDescriptor> _descriptor;
+	
+	// Configuration storage
+	std::wstring _mjpegUrl;
+	UINT32 _configWidth = 1920;
+	UINT32 _configHeight = 1080;
 };
 

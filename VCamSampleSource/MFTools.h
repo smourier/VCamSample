@@ -26,8 +26,9 @@ public:
 	{
 		RETURN_HR_IF(E_INVALIDARG, !value);
 		assert(_attributes);
-		auto hr = _attributes->GetItem(guidKey, value);
-		WINTRACE(L"%s:GetItem '%s' value:%s", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), PROPVARIANT_ToString(*value).c_str());
+	auto hr = _attributes->GetItem(guidKey, value);
+	// minimal trace: key and type only
+	WINTRACE(L"%s:GetItem '%s' vt:0x%02X", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), value->vt);
 		return hr;
 	}
 
@@ -36,8 +37,8 @@ public:
 		RETURN_HR_IF(E_INVALIDARG, !pType);
 		*pType = (MF_ATTRIBUTE_TYPE)0;
 		assert(_attributes);
-		auto hr = _attributes->GetItemType(guidKey, pType);
-		WINTRACE(L"%s:GetItemType '%s' type:%s hr:0x%08X", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), MF_ATTRIBUTE_TYPE_ToString(*pType).c_str(), hr);
+	auto hr = _attributes->GetItemType(guidKey, pType);
+	WINTRACE(L"%s:GetItemType '%s' type:%u hr:0x%08X", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), (UINT)*pType, hr);
 		return hr;
 	}
 
@@ -92,8 +93,8 @@ public:
 		RETURN_HR_IF(E_INVALIDARG, !pguidValue);
 		ZeroMemory(pguidValue, 16);
 		assert(_attributes);
-		auto hr = _attributes->GetGUID(guidKey, pguidValue);
-		WINTRACE(L"%s:GetGUID '%s' hr:0x%08X value:'%s'", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), hr, GUID_ToStringW(*pguidValue).c_str());
+	auto hr = _attributes->GetGUID(guidKey, pguidValue);
+	WINTRACE(L"%s:GetGUID '%s' hr:0x%08X value:'%s'", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), hr, GUID_ToStringW(*pguidValue).c_str());
 		return hr;
 	}
 
@@ -120,8 +121,8 @@ public:
 		*ppwszValue = 0;
 		*pcchLength = 0;
 		assert(_attributes);
-		auto hr = _attributes->GetAllocatedString(guidKey, ppwszValue, pcchLength);
-		WINTRACE(L"%s:GetAllocatedString hr:0x%08X '%s' len:%u value:'%s'", _trace.c_str(), hr, GUID_ToStringW(guidKey).c_str(), *pcchLength, ppwszValue);
+	auto hr = _attributes->GetAllocatedString(guidKey, ppwszValue, pcchLength);
+	WINTRACE(L"%s:GetAllocatedString hr:0x%08X '%s' len:%u", _trace.c_str(), hr, GUID_ToStringW(guidKey).c_str(), *pcchLength);
 		return hr;
 	}
 
@@ -160,8 +161,7 @@ public:
 	STDMETHODIMP SetItem(REFGUID guidKey, REFPROPVARIANT value)
 	{
 		assert(_attributes);
-		auto v = PROPVARIANT_ToString(value);
-		WINTRACE(L"%s:SetItem '%s' value:%s", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), v.c_str());
+	WINTRACE(L"%s:SetItem '%s' vt:0x%02X", _trace.c_str(), GUID_ToStringW(guidKey).c_str(), value.vt);
 		return _attributes->SetItem(guidKey, value);
 	}
 

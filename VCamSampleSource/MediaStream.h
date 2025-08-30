@@ -39,6 +39,8 @@ public:
 	HRESULT Start(IMFMediaType* type);
 	HRESULT Stop();
 	void Shutdown();
+	HRESULT SetResolution(UINT32 width, UINT32 height);
+	HRESULT SetMjpegUrl(LPCWSTR url);
 
 private:
 #if _DEBUG
