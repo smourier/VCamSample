@@ -64,23 +64,9 @@ Here is a summary:
 
 => So the solution is just to either copy the output directory once built (or downloaded) somewhere where everyone has access and register `WinCamHTTPSource.dll` from there, or copy/checkout the whole repo where everyone has access and build and register there.
 
-Also, if you downloaded the binaries from the internet, not compiled them by yourself, make sure you remove the Mark of the Web (https://en.wikipedia.org/wiki/Mark_of_the_Web) by clicking "Unblock" on the .zip file you downloaded and pressing OK.
-
-## Tracing
-
-The code outputs lots of useful traces. This is important in this virtual camera environment because there are at least 4 processes involved: the VCamSample app, the Windows Frame Server, the Windows camera monitor, and the reader app (camera, etc.). They all load the media source COM object in-process.
-
-If you see no frames:
-
-- Ensure the MJPEG URL is reachable and actually serves multipart JPEGs.
-- Confirm the app has written the configuration under `HKLM\SOFTWARE\WinCamHTTP` (requires Administrator).
-- Check the ETW trace output for media type negotiation and sample delivery messages.
-- Verify `WinCamHTTPSource.dll` is registered from a directory accessible by the Frame Server services (see section above).
 ## Tracing
 
 The code output lots of interesting traces. It's quite important in this virtual camera environment because there's not just your process that's involved but at least 4: the VCamSample app, the Windows Frame Server, the Windows camera monitor, and the reader app (camera, etc.). They all load the media source COM object in-process.
-
-Tracing here  doesn't use `OutputDebugString` because it's 100% old, crappy, truncating text, slow, etc. Instead it uses Event Tracing for Windows ("ETW") in "string-only" mode (the mode where it's very simple and you don't have to register painfull traces records and use complex readers...).
 
 So to read these ETW traces, use WpfTraceSpy you can download here https://github.com/smourier/TraceSpy. Configure an ETW Provider with the GUID set to `964d4572-adb9-4f3a-8170-fcbecec27467`.
 
