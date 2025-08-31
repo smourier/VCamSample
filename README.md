@@ -1,28 +1,32 @@
 # WinCamHTTP
 This solution contains a basic Media Foundation Virtual Camera application that streams from an MJPEG HTTP source. It works only on Windows 11 thanks to the [MFCreateVirtualCamera](https://learn.microsoft.com/en-us/windows/win32/api/mfvirtualcamera/nf-mfvirtualcamera-mfcreatevirtualcamera) API.
 
-There are two projects in the solution:
+There are three projects in the solution:
 
-* **WinCamHTTPSource**: the Media Source that reads from an MPJEG stream.
-* **WinCamHTTPSetup**: the main application that creates and manages the virtual camera.
+* **WinCamHTTPSource**: the Media Source DLL that reads from an MJPEG stream.
+* **WinCamHTTPSetup**: the setup application that configures the virtual camera settings (requires Administrator privileges).
+* **WinCamHTTP**: the user application that starts and stops the virtual camera.
 
 ## Build and Run
 
 To use the virtual camera:
 
-* Build in debug or release.
-* **WinCamHTTPSource**: the Media Source that reads from an MJPEG stream.
-* **WinCamHTTPSetup**: the main application that creates and manages the virtual camera.
-  - Enter an `MJPEG URL`.
-  - Pick a `Resolution` (default `1920x1080`).
-  - Optionally adjust the `Camera Name`.
-  - Click `Start` to create and start the virtual camera for the current session.
-  - Click `Stop` to remove it.
+* Build in debug or release - this creates three outputs:
+  - **WinCamHTTPSource.dll**: the Media Source DLL that reads from an MJPEG stream
+  - **WinCamHTTPSetup.exe**: the setup application for configuring camera settings (requires Administrator privileges)  
+  - **WinCamHTTP.exe**: the user application for starting/stopping the virtual camera
+* Go to the build output and register the media source (a COM object) with: `regsvr32 WinCamHTTPSource.dll` (you must run this as Administrator. Registration happens under `HKLM` so the system Frame Server can load it).
+* Run `WinCamHTTPSetup.exe` as Administrator to configure the camera settings:
+  - Enter an `MJPEG URL`
+  - Pick a `Resolution` (default `1920x1080`)
+  - Optionally adjust the `Camera Name`
+  - Click `Save` to write configuration to the registry
+* Run `WinCamHTTP.exe` as a regular user to control the virtual camera:
+  - The camera starts at launch.
+  - Right-click the tray icon and choose "Exit" to stop the camera.
 * Open the Windows Camera app, a web browser using the ImageCapture API, or any application that supports virtual cameras.
 
 You should now see the virtual camera output in supported applications.
-* Go to the build output and register the media source (a COM object) with a command similar to this: `regsvr32 WinCamHTTPSource.dll` (you must run this as Administrator. Registration happens under `HKLM` so the system Frame Server can load it).
-* Run the `WinCamHTTPSetup` app (it requires Administrator rights to write configuration under `HKLM`).
 
 ## Configuration (HKLM)
 
@@ -39,13 +43,15 @@ Values used today:
 
 Notes:
 
-- The `WinCamHTTPSetup` app writes these values when you click `Start`. Because they live under `HKLM`, running the app as Administrator is required.
-- The `WinCamHTTPSource` DLL (loaded by the Windows Frame Server) reads these values on startup to configure the media source and MJPEG ingest.
+- The `WinCamHTTPSetup.exe` app writes these values when you click `Save`. Because they live under `HKLM`, running the app as Administrator is required.
+- The `WinCamHTTP.exe` app reads these values to create and manage the virtual camera. It runs as a regular user.
+- The `WinCamHTTPSource.dll` (loaded by the Windows Frame Server) reads these values on startup to configure the media source and MJPEG ingest.
 * The media source uses `Direct2D` and `DirectWrite` to create images. It will then create Media Foundation samples from these. To create MF samples, it can use:
   * The GPU, if a Direct3D manager has been provided by the environment. This is the case of the Windows 11 camera app.
   * The CPU, if no Direct3D environment has been provided. In this case, the media source uses a WIC bitmap as a render target and it then copies the bits over to an MF sample. The ImageCapture API code embedded in Chrome or Edge, Teams, etc., is an example of such a D3D-less environment.
--- The `WinCamHTTPSetup` app writes these values when you click `Start`. Because they live under `HKLM`, running the app as Administrator is required.
--- The `WinCamHTTPSource` DLL (loaded by the Windows Frame Server) reads these values on startup to configure the media source and MJPEG ingest.
+* The media source uses `Direct2D` and `DirectWrite` to create images. It will then create Media Foundation samples from these. To create MF samples, it can use:
+  * The GPU, if a Direct3D manager has been provided by the environment. This is the case of the Windows 11 camera app.
+  * The CPU, if no Direct3D environment has been provided. In this case, the media source uses a WIC bitmap as a render target and it then copies the bits over to an MF sample. The ImageCapture API code embedded in Chrome or Edge, Teams, etc., is an example of such a D3D-less environment.
 * The media source provides RGB32 and NV12 formats as most setups prefer the NV12 format. Samples are initially created as RGB32 (Direct2D) and converted to NV12. To convert the samples, the media source uses two ways:
   * The GPU, if a Direct3D manager has been provided, using Media Foundation's [Video Processor MFT](https://learn.microsoft.com/en-us/windows/win32/medfound/video-processor-mft).
   * The CPU, if no Direct3D environment has been provided. In this case, the RGB to NV12 conversion is done in the code (so on the CPU).
@@ -73,6 +79,6 @@ So to read these ETW traces, use WpfTraceSpy you can download here https://githu
 If you see no frames:
 
 - Ensure the MJPEG URL is reachable and actually serves multipart JPEGs.
-- Confirm the app has written the configuration under `HKLM\SOFTWARE\VCamSample` (requires Administrator).
+- Confirm the setup app has written the configuration under `HKLM\SOFTWARE\WinCamHTTP` (requires Administrator).
 - Check the ETW trace output for media type negotiation and sample delivery messages.
-- Verify `VCamSampleSource.dll` is registered from a directory accessible by the Frame Server services (see section above).
+- Verify `WinCamHTTPSource.dll` is registered from a directory accessible by the Frame Server services (see section above).

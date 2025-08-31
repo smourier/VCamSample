@@ -31,7 +31,7 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{184f456b-f443-4374-b41e-e37da1b1928d}</ProjectGuid>
-    <RootNamespace>WinCamHTTPSetup</RootNamespace>
+    <RootNamespace>VCamSample</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <TargetName>WinCamHTTPSetup</TargetName>
   </PropertyGroup>
@@ -214,18 +214,14 @@
     <ClCompile Include="VCamSample.cpp" />
     <ClCompile Include="WinTrace.cpp" />
   </ItemGroup>
-  <!-- ResourceCompile removed temporarily; add a valid .rc/.ico to restore resources -->
   <ItemGroup>
-  <!-- Original icon removed during rename; provide a proper .ico file to restore application icon -->
+    <ResourceCompile Include="VCamSample.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="VCamSample.ico" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="VCamSample.rc">
-      <AdditionalIncludeDirectories>$(ProjectDir)</AdditionalIncludeDirectories>
-    </ResourceCompile>
-    <Image Include="WinCamHTTP.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

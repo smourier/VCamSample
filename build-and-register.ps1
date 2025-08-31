@@ -8,8 +8,8 @@
         This script performs the complete setup for the WinCamHTTP virtual camera:
     1. Restores NuGet packages if needed
     2. Builds the solution in Release x64 configuration
-    3. Copies outputs to C:\VCamSample (accessible by Frame Server services)
-    4. Registers VCamSampleSource.dll as a COM object
+    3. Copies outputs to C:\WinCamHTTP (accessible by Frame Server services)
+    4. Registers WinCamHTTPSource.dll as a COM object
     
     Must be run as Administrator for DLL registration.
 
@@ -20,7 +20,7 @@
     Build platform (default: x64)
     
 .PARAMETER TargetPath
-    System-wide installation path (default: C:\VCamSample)
+    System-wide installation path (default: C:\WinCamHTTP)
     
 .PARAMETER SkipBuild
         Skip build step and only copy/register existing outputs
@@ -29,7 +29,7 @@
 param(
     [string]$Configuration = "Release",
     [string]$Platform = "x64", 
-    [string]$TargetPath = "C:\VCamSample",
+    [string]$TargetPath = "C:\WinCamHTTP",
     [switch]$SkipBuild
 )
 
@@ -112,9 +112,11 @@ try {
     Test-FileExists $OutputDir "Build output directory"
     
     $dllPath = Join-Path $OutputDir "WinCamHTTPSource.dll"
-    $exePath = Join-Path $OutputDir "WinCamHTTPSetup.exe"
+    $setupExePath = Join-Path $OutputDir "WinCamHTTPSetup.exe"
+    $mainExePath = Join-Path $OutputDir "WinCamHTTP.exe"
     Test-FileExists $dllPath "WinCamHTTPSource.dll"
-    Test-FileExists $exePath "WinCamHTTPSetup.exe"
+    Test-FileExists $setupExePath "WinCamHTTPSetup.exe"
+    Test-FileExists $mainExePath "WinCamHTTP.exe"
     
     # Create target directory if it doesn't exist
     if (-not (Test-Path $TargetPath)) {
@@ -128,9 +130,11 @@ try {
     
     # Verify critical files were copied
     $targetDllPath = Join-Path $TargetPath "WinCamHTTPSource.dll"
-    $targetExePath = Join-Path $TargetPath "WinCamHTTPSetup.exe"
+    $targetSetupExePath = Join-Path $TargetPath "WinCamHTTPSetup.exe"
+    $targetMainExePath = Join-Path $TargetPath "WinCamHTTP.exe"
     Test-FileExists $targetDllPath "Target WinCamHTTPSource.dll"
-    Test-FileExists $targetExePath "Target WinCamHTTPSetup.exe"
+    Test-FileExists $targetSetupExePath "Target WinCamHTTPSetup.exe"
+    Test-FileExists $targetMainExePath "Target WinCamHTTP.exe"
     
     # Step 5: Register the COM DLL
     Write-Host "[5/5] Registering COM DLL..." -ForegroundColor Cyan
@@ -143,9 +147,11 @@ try {
     Write-Host "Virtual camera DLL registered: $targetDllPath"
     Write-Host ""
     Write-Host "To test the virtual camera:" -ForegroundColor White
-    Write-Host "1. Run the sample app: $targetExePath"
-    Write-Host "2. Open Windows Camera app or browser test page"
-    Write-Host "3. Select 'WinCamHTTP Source' as camera input"
+    Write-Host "1. Run the setup app: $targetSetupExePath (as Administrator)"
+    Write-Host "2. Configure MJPEG URL and camera settings"
+    Write-Host "3. Run the tray app: $targetMainExePath (as regular user)"
+    Write-Host "4. Open Windows Camera app or browser test page"
+    Write-Host "5. Select 'WinCamHTTP Source' as camera input"
     Write-Host ""
     Write-Host "To unregister later:" -ForegroundColor White
     Write-Host "regsvr32.exe /u `"$targetDllPath`""
