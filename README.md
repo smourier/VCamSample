@@ -28,6 +28,53 @@ To use the virtual camera:
 
 You should now see the virtual camera output in supported applications.
 
+## Installation
+
+### MSI Installer
+
+The project includes an MSI installer built with WiX Toolset:
+
+#### Building the MSI
+
+The project automatically downloads WiX Toolset via NuGet, so no manual installation is required:
+
+```powershell
+# Build MSI installer (requires Administrator privileges)
+.\build-installer.ps1
+
+# Alternative: Build MSI with NuGet WiX auto-download  
+.\build-installer-nuget.ps1
+```
+
+The MSI installer (`WinCamHTTPSetup.msi`) provides:
+- Windows Installer package
+- Automatic COM component registration
+- Start Menu shortcuts
+- Registry configuration
+- Proper uninstall support
+- Silent installation option: `msiexec /i WinCamHTTPSetup.msi /quiet`
+
+#### Self-Extracting Installer (Alternative)
+
+For environments without admin privileges, use the PowerShell-based installer:
+
+```powershell
+# Create PowerShell self-extracting installer
+.\create-installer.ps1
+
+# Files are generated in: Installer\Output\
+# Run: WinCamHTTP-Setup.ps1 (as Administrator)
+```
+
+### Manual Installation
+
+For development or testing:
+
+```powershell
+# Build and register components manually
+.\build-and-register.ps1
+```
+
 ## Configuration (HKLM)
 
 The app and the media source share configuration via the system registry so that the Frame Server (running as a system service) and the UI (running as the user) agree on the same values. Keys are stored under:

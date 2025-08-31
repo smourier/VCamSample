@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="WinCamHTTP Virtual Camera" 
+           Language="1033" 
+           Version="1.0.0.0" 
+           Manufacturer="WinCamHTTP Project" 
+           UpgradeCode="{12345678-1234-1234-1234-123456789012}">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Platform="x64"
+             Description="Virtual Camera for MJPEG HTTP Streams"
+             Comments="Installs WinCamHTTP virtual camera components" />
+
+    <!-- Major upgrade configuration -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <!-- Media definition -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Installation directory structure -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="WinCamHTTP">
+          <!-- Main installation directory for all components -->
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="WinCamHTTP" />
+      </Directory>
+    </Directory>
+
+    <!-- Feature definition -->
+    <Feature Id="ProductFeature" Title="WinCamHTTP Virtual Camera" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ProgramMenuDir" />
+    </Feature>
+
+    <!-- Program Menu Directory Component -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ProgramMenuDir" Guid="{87654321-4321-4321-4321-210987654321}">
+        <CreateFolder />
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" 
+                       Key="Software\WinCamHTTP" 
+                       Name="installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+        
+        <!-- Setup Application Shortcut -->
+        <Shortcut Id="WinCamHTTPSetupShortcut"
+                  Name="WinCamHTTP Setup"
+                  Description="Configure WinCamHTTP Virtual Camera Settings"
+                  Target="[INSTALLFOLDER]WinCamHTTPSetup.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        
+        <!-- Main Application Shortcut -->
+        <Shortcut Id="WinCamHTTPShortcut"
+                  Name="WinCamHTTP"
+                  Description="WinCamHTTP Virtual Camera Tray Application"
+                  Target="[INSTALLFOLDER]WinCamHTTP.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        
+        <!-- Uninstall Shortcut -->
+        <Shortcut Id="UninstallProduct"
+                  Name="Uninstall WinCamHTTP"
+                  Description="Uninstalls WinCamHTTP Virtual Camera"
+                  Target="[SystemFolder]msiexec.exe"
+                  Arguments="/x [ProductCode]" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Components Group -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      
+      <!-- Main Virtual Camera DLL -->
+      <Component Id="VirtualCameraDLL" Guid="{11111111-1111-1111-1111-111111111111}">
+        <File Id="WinCamHTTPSourceDLL" 
+              Source="..\x64\Release\WinCamHTTPSource.dll" 
+              KeyPath="yes" />
+        
+        <!-- COM Registration for the Virtual Camera DLL -->
+        <RegistryValue Root="HKLM" 
+                       Key="Software\Classes\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance\{12345678-ABCD-EFAB-CDEF-123456789ABC}"
+                       Name="FriendlyName" 
+                       Type="string" 
+                       Value="WinCamHTTP Source" />
+      </Component>
+      
+      <!-- Setup Application -->
+      <Component Id="SetupApplication" Guid="{22222222-2222-2222-2222-222222222222}">
+        <File Id="WinCamHTTPSetupEXE" 
+              Source="..\x64\Release\WinCamHTTPSetup.exe" 
+              KeyPath="yes" />
+      </Component>
+      
+      <!-- Main Tray Application -->
+      <Component Id="MainApplication" Guid="{33333333-3333-3333-3333-333333333333}">
+        <File Id="WinCamHTTPEXE" 
+              Source="..\x64\Release\WinCamHTTP.exe" 
+              KeyPath="yes" />
+      </Component>
+      
+      <!-- Debug Symbols (Optional) -->
+      <Component Id="DebugSymbols" Guid="{44444444-4444-4444-4444-444444444444}">
+        <File Id="WinCamHTTPSourcePDB" 
+              Source="..\x64\Release\WinCamHTTPSource.pdb" 
+              KeyPath="yes" />
+        <File Id="WinCamHTTPSetupPDB" 
+              Source="..\x64\Release\WinCamHTTPSetup.pdb" />
+        <File Id="WinCamHTTPPDB" 
+              Source="..\x64\Release\WinCamHTTP.pdb" />
+      </Component>
+      
+      <!-- Registry Configuration -->
+      <Component Id="RegistryConfig" Guid="{55555555-5555-5555-5555-555555555555}">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\WinCamHTTP">
+          <RegistryValue Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+          <RegistryValue Name="Version" Type="string" Value="1.0.0.0" />
+        </RegistryKey>
+      </Component>
+      
+    </ComponentGroup>
+
+    <!-- Custom Actions for COM Registration -->
+    <CustomAction Id="RegisterCOM" 
+                  Directory="INSTALLFOLDER" 
+                  ExeCommand="regsvr32.exe /s &quot;[INSTALLFOLDER]WinCamHTTPSource.dll&quot;" 
+                  Execute="deferred" 
+                  Impersonate="no" />
+    
+    <CustomAction Id="UnregisterCOM" 
+                  Directory="INSTALLFOLDER" 
+                  ExeCommand="regsvr32.exe /s /u &quot;[INSTALLFOLDER]WinCamHTTPSource.dll&quot;" 
+                  Execute="deferred" 
+                  Impersonate="no" />
+
+    <!-- Installation Sequence -->
+    <InstallExecuteSequence>
+      <Custom Action="RegisterCOM" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="UnregisterCOM" Before="RemoveFiles">Installed</Custom>
+    </InstallExecuteSequence>
+
+    <!-- UI Configuration -->
+    <UI>
+      <UIRef Id="WixUI_Minimal" />
+      <Publish Dialog="ExitDialog" 
+               Control="Finish" 
+               Event="DoAction" 
+               Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+    </UI>
+    
+    <!-- Launch Application after install -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch WinCamHTTP Setup to configure the virtual camera" />
+    <CustomAction Id="LaunchApplication" 
+                  Directory="INSTALLFOLDER" 
+                  ExeCommand="WinCamHTTPSetup.exe" 
+                  Execute="immediate" 
+                  Return="asyncNoWait" />
+
+  </Product>
+</Wix>
