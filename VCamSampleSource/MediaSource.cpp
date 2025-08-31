@@ -401,7 +401,7 @@ STDMETHODIMP MediaSource::SetConfiguration(LPCWSTR url, UINT32 width, UINT32 hei
 	
 	// Also store in HKEY_LOCAL_MACHINE registry
 	HKEY hKey;
-	LSTATUS result = RegCreateKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, nullptr, 
+	LSTATUS result = RegCreateKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WinCamHTTP", 0, nullptr, 
 		REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hKey, nullptr);
 	if (result == ERROR_SUCCESS)
 	{
@@ -455,7 +455,7 @@ STDMETHODIMP MediaSource::GetConfiguration(LPWSTR* url, UINT32* width, UINT32* h
 	if (_mjpegUrl.empty())
 	{
 		HKEY hKey;
-		LSTATUS result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, KEY_READ, &hKey);
+		LSTATUS result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WinCamHTTP", 0, KEY_READ, &hKey);
 		if (result == ERROR_SUCCESS)
 		{
 			WCHAR urlBuffer[2048]{};

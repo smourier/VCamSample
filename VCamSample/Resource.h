@@ -5,13 +5,13 @@
 #define IDS_APP_TITLE			103
 
 #define IDR_MAINFRAME			128
-#define IDD_VCAMSAMPLE_DIALOG	102
+#define IDD_WINCAMHTTP_DIALOG	102
 #define IDD_ABOUTBOX			103
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
-#define IDI_VCAMSAMPLE			107
-#define IDI_SMALL				108
-#define IDC_VCAMSAMPLE			109
+#define IDI_WINCAMHTTP			107
+#define IDI_SMALL			108
+#define IDC_WINCAMHTTP			109
 
 // Runtime UI control IDs (created dynamically)
 #define IDC_EDIT_URL                2001

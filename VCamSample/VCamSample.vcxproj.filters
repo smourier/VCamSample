@@ -24,9 +24,6 @@
     <ClInclude Include="Resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="VCamSample.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="WinTrace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -51,7 +48,7 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="VCamSample.ico">
+    <Image Include="WinCamHTTP.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

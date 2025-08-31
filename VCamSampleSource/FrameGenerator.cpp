@@ -183,7 +183,7 @@ HRESULT FrameGenerator::EnsureHttpOpen()
 {
 	if (!_hSession)
 	{
-		_hSession = WinHttpOpen(L"VCamSample/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+		_hSession = WinHttpOpen(L"WinCamHTTP/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 		if (!_hSession) { auto err = HRESULT_FROM_WIN32(GetLastError()); WINTRACE(L"WinHttpOpen failed 0x%08X", err); return err; }
 	}
 	if (!_hConnect)

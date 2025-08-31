@@ -63,7 +63,7 @@ public:
 		
 		// Read configuration from HKEY_LOCAL_MACHINE (accessible by system services)
 		HKEY hKey;
-		LSTATUS result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, KEY_READ, &hKey);
+		LSTATUS result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WinCamHTTP", 0, KEY_READ, &hKey);
 		if (result == ERROR_SUCCESS)
 		{
 			WCHAR urlBuffer[2048]{};

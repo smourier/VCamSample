@@ -77,7 +77,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 	LoadStringW(hInstance, IDS_APP_TITLE, _title, MAX_LOADSTRING);
 	LoadStringW(hInstance, IDS_APP_TITLE, _title, MAX_LOADSTRING);
-	LoadStringW(hInstance, IDC_VCAMSAMPLE, _windowClass, MAX_LOADSTRING);
+	LoadStringW(hInstance, IDC_WINCAMHTTP, _windowClass, MAX_LOADSTRING);
 	MyRegisterClass(hInstance);
 	auto hwnd = InitInstance(hInstance, nCmdShow);
 	if (hwnd)
@@ -86,7 +86,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		if (SUCCEEDED(MFStartup(MF_VERSION)))
 		{
 			// Normal message loop; the UI Start/Stop buttons manage the camera
-			HACCEL accelerators = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_VCAMSAMPLE));
+			HACCEL accelerators = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINCAMHTTP));
 			MSG msg{};
 			while (GetMessage(&msg, nullptr, 0, 0))
 			{
@@ -160,10 +160,10 @@ ATOM MyRegisterClass(HINSTANCE instance)
 	wcex.style = CS_HREDRAW | CS_VREDRAW;
 	wcex.lpfnWndProc = WndProc;
 	wcex.hInstance = instance;
-	wcex.hIcon = LoadIcon(instance, MAKEINTRESOURCE(IDI_VCAMSAMPLE));
+	wcex.hIcon = LoadIcon(instance, MAKEINTRESOURCE(IDI_WINCAMHTTP));
 	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_VCAMSAMPLE);
+	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_WINCAMHTTP);
 	wcex.lpszClassName = _windowClass;
 	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 	return RegisterClassExW(&wcex);
@@ -207,7 +207,7 @@ HWND InitInstance(HINSTANCE instance, int cmd)
 	// Load persisted URL, resolution and camera name from registry (HKLM so the service-loaded DLL sees the same values)
 	{
 		HKEY hKey;
-		if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+	if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WinCamHTTP", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
 		{
 			DWORD type, size;
 			
@@ -301,7 +301,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			
 			// Store configuration in HKEY_LOCAL_MACHINE (accessible by system services)
 			HKEY hKey;
-			LSTATUS result = RegCreateKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VCamSample", 0, nullptr, 
+			LSTATUS result = RegCreateKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WinCamHTTP", 0, nullptr, 
 				REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hKey, nullptr);
 			if (result == ERROR_SUCCESS)
 			{

@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by VCamSampleSource.rc
+// Used by WinCamHTTPSource.rc
 
 // Next default values for new objects
 // 

@@ -1,14 +1,14 @@
-# VCamSample Build and Register Launcher
+# WinCamHTTP Build and Register Launcher
 # This script will prompt for Administrator elevation and run the main build script
 
 $scriptPath = Join-Path $PSScriptRoot "build-and-register.ps1"
 
-Write-Host "VCamSample Setup Launcher" -ForegroundColor Green
+Write-Host "WinCamHTTP Setup Launcher" -ForegroundColor Green
 Write-Host "=========================" -ForegroundColor Green
 Write-Host ""
 Write-Host "This will:"
-Write-Host "1. Build the VCamSample solution"
-Write-Host "2. Copy outputs to C:\VCamSample"
+Write-Host "1. Build the WinCamHTTP solution"
+Write-Host "2. Copy outputs to C:\WinCamHTTP"
 Write-Host "3. Register the virtual camera DLL"
 Write-Host ""
 Write-Host "Administrator privileges are required for DLL registration."

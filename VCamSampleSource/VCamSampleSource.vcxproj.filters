@@ -79,7 +79,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="VCamSampleSource.def">
+    <None Include="WinCamHTTPSource.def">
       <Filter>Source Files</Filter>
     </None>
     <None Include="packages.config" />

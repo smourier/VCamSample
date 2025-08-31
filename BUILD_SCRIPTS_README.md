@@ -1,6 +1,6 @@
-# VCamSample Build Scripts
+# WinCamHTTP Build Scripts
 
-This directory contains PowerShell scripts to automate building and registering the VCamSample virtual camera.
+This directory contains PowerShell scripts to automate building and registering the WinCamHTTP virtual camera.
 
 ## Scripts Overview
 
@@ -33,9 +33,9 @@ This directory contains PowerShell scripts to automate building and registering 
    ```
 
 3. **Test the virtual camera**:
-   - Run `C:\VCamSample\VCamSample.exe`
+   - Run `C:\WinCamHTTP\WinCamHTTPSetup.exe`
    - Open Windows Camera app or a browser test page
-   - Select "VCam Sample Source" as your camera
+   - Select "WinCamHTTP Source" as your camera
 
 4. **Cleanup when done**:
    ```powershell
@@ -48,14 +48,14 @@ This directory contains PowerShell scripts to automate building and registering 
 1. **Download nuget.exe** (if not present)
 2. **Restore NuGet packages** from packages.config files
 3. **Build solution** using MSBuild in Release x64 configuration
-4. **Verify outputs** (VCamSample.exe and VCamSampleSource.dll)
+4. **Verify outputs** (WinCamHTTPSetup.exe and WinCamHTTPSource.dll)
 
 ### System Installation
-1. **Copy build outputs** to `C:\VCamSample`
+1. **Copy build outputs** to `C:\WinCamHTTP`
    - This location is accessible by Windows Frame Server services
    - Avoids permission issues with user profile directories
 2. **Register COM DLL** using `regsvr32.exe`
-   - Registers VCamSampleSource.dll in HKLM (machine-wide)
+      - Registers WinCamHTTPSource.dll in HKLM (machine-wide)
    - Required for Frame Server and Frame Server Monitor services
 
 ### Why System-Wide Installation?
@@ -101,20 +101,20 @@ Example:
 
 ### Virtual camera not appearing
 - Ensure Windows 11 (required for MFCreateVirtualCamera API)
-- Verify DLL registration: `regsvr32.exe /s "C:\VCamSample\VCamSampleSource.dll"`
+- Verify DLL registration: `regsvr32.exe /s "C:\WinCamHTTP\WinCamHTTPSource.dll"`
 - Check that Frame Server services are running
 - Try running VCamSample.exe before opening camera apps
 
 ## File Structure After Setup
 
 ```
-C:\VCamSample\
-├── VCamSample.exe           # Main application
-├── VCamSample.pdb           # Debug symbols
-├── VCamSampleSource.dll     # Virtual camera COM DLL (registered)
-├── VCamSampleSource.pdb     # Debug symbols
-├── VCamSampleSource.lib     # Import library
-└── VCamSampleSource.exp     # Export file
+C:\WinCamHTTP\
+├── WinCamHTTPSetup.exe           # Main application
+├── WinCamHTTPSetup.pdb           # Debug symbols
+├── WinCamHTTPSource.dll          # Virtual camera COM DLL (registered)
+├── WinCamHTTPSource.pdb          # Debug symbols
+├── WinCamHTTPSource.lib          # Import library
+└── WinCamHTTPSource.exp          # Export file
 ```
 
 ## Security Notes

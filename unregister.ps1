@@ -2,25 +2,25 @@
 
 <#
 .SYNOPSIS
-    Unregisters the VCamSample virtual camera DLL.
+    Unregisters the WinCamHTTP virtual camera DLL.
 
 .DESCRIPTION
-    This script unregisters the VCamSampleSource.dll COM object and optionally
+    This script unregisters the WinCamHTTPSource.dll COM object and optionally
     removes the installation directory.
 
 .PARAMETER TargetPath
-    Installation path where VCamSampleSource.dll is located (default: C:\VCamSample)
+    Installation path where WinCamHTTPSource.dll is located (default: C:\WinCamHTTP)
     
 .PARAMETER RemoveFiles
     Remove the installation directory after unregistering
 #>
 
 param(
-    [string]$TargetPath = "C:\VCamSample",
+    [string]$TargetPath = "C:\WinCamHTTP",
     [switch]$RemoveFiles
 )
 
-Write-Host "VCamSample Unregister Script" -ForegroundColor Red
+Write-Host "WinCamHTTP Unregister Script" -ForegroundColor Red
 Write-Host "============================" -ForegroundColor Red
 Write-Host "Target path: $TargetPath"
 Write-Host ""
@@ -33,7 +33,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 }
 
 try {
-    $targetDllPath = Join-Path $TargetPath "VCamSampleSource.dll"
+    $targetDllPath = Join-Path $TargetPath "WinCamHTTPSource.dll"
     
     if (Test-Path $targetDllPath) {
         Write-Host "Unregistering COM DLL..." -ForegroundColor Yellow
@@ -45,7 +45,7 @@ try {
             Write-Warning "DLL unregistration returned exit code $($process.ExitCode). This may be normal if already unregistered."
         }
     } else {
-        Write-Warning "VCamSampleSource.dll not found at: $targetDllPath"
+    Write-Warning "WinCamHTTPSource.dll not found at: $targetDllPath"
     }
     
     if ($RemoveFiles -and (Test-Path $TargetPath)) {
@@ -55,7 +55,7 @@ try {
     }
     
     Write-Host ""
-    Write-Host "VCamSample cleanup completed." -ForegroundColor Green
+    Write-Host "WinCamHTTP cleanup completed." -ForegroundColor Green
     
 } catch {
     Write-Error "Unregister failed: $($_.Exception.Message)"
